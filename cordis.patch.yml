@@ -1,0 +1,11 @@
+# dsh-camera-watermark bundle: inserts the Host tool row.
+#
+# `pythonPath` is empty by default (the plugin probes `python` then `py -3`).
+# Point it at a specific interpreter when the machine has several Pythons.
+- insert:
+    - id: camera-watermark
+      name: dsh-camera-watermark
+      config:
+        pythonPath: ''
+        studioPort: 5000
+        timeoutSeconds: 300

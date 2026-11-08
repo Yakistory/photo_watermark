@@ -1,0 +1,1069 @@
+{
+  "_readme": [
+    "水印模板 = 数据，不是代码。改完保存即生效（后端按 mtime 缓存，不必重启服务）。",
+    "几何量统一用『占照片宽度的比例』，所以 1600px 预览与全尺寸导出必然等比一致。",
+    "cap_ratio 是『文字墨迹高度 / 照片宽度』的实测值——参照图就是这么量出来的（scripts/check_bar_geometry.py）。",
+    "数值控件的 step 由后端按显示小数位下发（float=0.01）；滑块网格必须与数字框小数位一致，否则手输会被浏览器吸附。",
+    "字体参数（font_family / {行}_font）的值 = 系统字体 id 或 fonts/ 里自己上传的字体 id，留空=自动挑体。",
+    "extends 继承父模板：子模板只写差异，params 会深合并、controls 缺省继承（父模板被删掉，子模板会掉回默认值）。",
+    "controls 决定前端显示哪些旋钮（顺序=显示顺序，group=分组标题），留空则不带旋钮。",
+    "params 里出现白名单之外的键会被丢弃，并在 /api/watermark/presets 的 invalid_params 里回显。",
+    "新参数必须同时写进 params 与 app.py 的 _PRESET_PARAM_SPECS：控件初值读的是 params（缺键的 float 会显示量程下限）。",
+    "两种模板：kind=exif_bar（信息栏：照片下方追加一条参数带，照片与白条一起出片）/ kind=photo_frame（画框水印：照片四周留白、底边空白里写文字，拍立得风）。",
+    "画框水印的几何：frame_* 管留白与文字区（frame_gap_ratio=四边留白宽度、frame_bottom_extra_ratio=底边文字区高度），{行}_* 管主标题/品牌/参数/日期四行（对齐只有 left/center/right，默认居中）。"
+  ],
+  "blur_backdrop_brand": {
+    "controls": [
+      {
+        "group": "背景与文字区",
+        "key": "frame_show"
+      },
+      {
+        "group": "背景与文字区",
+        "key": "frame_gap_ratio"
+      },
+      {
+        "group": "背景与文字区",
+        "key": "frame_color"
+      },
+      {
+        "group": "背景与文字区",
+        "key": "frame_opacity"
+      },
+      {
+        "group": "背景与文字区",
+        "key": "frame_top"
+      },
+      {
+        "group": "背景与文字区",
+        "key": "frame_bottom"
+      },
+      {
+        "group": "背景与文字区",
+        "key": "frame_left"
+      },
+      {
+        "group": "背景与文字区",
+        "key": "frame_right"
+      },
+      {
+        "group": "背景与文字区",
+        "key": "frame_bottom_extra_ratio"
+      },
+      {
+        "group": "背景与文字区",
+        "key": "frame_text_margin_ratio"
+      },
+      {
+        "group": "背景与文字区",
+        "key": "frame_line_gap_ratio"
+      },
+      {
+        "group": "背景与文字区",
+        "key": "frame_text_valign"
+      },
+      {
+        "group": "模糊底图",
+        "key": "bg_blur_ratio"
+      },
+      {
+        "group": "模糊底图",
+        "key": "bg_zoom_ratio"
+      },
+      {
+        "group": "模糊底图",
+        "key": "bg_brightness"
+      },
+      {
+        "group": "模糊底图",
+        "key": "bg_saturation"
+      },
+      {
+        "group": "暗角",
+        "key": "bg_vignette"
+      },
+      {
+        "group": "暗角",
+        "key": "bg_vignette_start"
+      },
+      {
+        "group": "暗角",
+        "key": "bg_vignette_color"
+      },
+      {
+        "group": "照片投影",
+        "key": "photo_shadow_show"
+      },
+      {
+        "group": "照片投影",
+        "key": "photo_shadow_blur_ratio"
+      },
+      {
+        "group": "照片投影",
+        "key": "photo_shadow_x_ratio"
+      },
+      {
+        "group": "照片投影",
+        "key": "photo_shadow_y_ratio"
+      },
+      {
+        "group": "照片投影",
+        "key": "photo_shadow_spread_ratio"
+      },
+      {
+        "group": "照片投影",
+        "key": "photo_shadow_opacity"
+      },
+      {
+        "group": "照片投影",
+        "key": "photo_shadow_color"
+      },
+      {
+        "group": "描边",
+        "key": "frame_border_ratio"
+      },
+      {
+        "group": "描边",
+        "key": "frame_border_color"
+      },
+      {
+        "group": "文字",
+        "key": "font_family"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_show"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_text"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_cap_ratio"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_bold"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_color"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_align"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_width_ratio"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_tracking"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_font"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_image"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_image_mono"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_image_color"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_image_opacity"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_show"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_text"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_cap_ratio"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_bold"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_color"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_align"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_width_ratio"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_tracking"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_font"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_image"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_image_mono"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_image_color"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_image_opacity"
+      },
+      {
+        "group": "参数行",
+        "key": "params_show"
+      },
+      {
+        "group": "参数行",
+        "key": "params_text"
+      },
+      {
+        "group": "参数行",
+        "key": "params_cap_ratio"
+      },
+      {
+        "group": "参数行",
+        "key": "params_bold"
+      },
+      {
+        "group": "参数行",
+        "key": "params_color"
+      },
+      {
+        "group": "参数行",
+        "key": "params_align"
+      },
+      {
+        "group": "参数行",
+        "key": "params_width_ratio"
+      },
+      {
+        "group": "参数行",
+        "key": "params_tracking"
+      },
+      {
+        "group": "参数行",
+        "key": "params_font"
+      },
+      {
+        "group": "参数行",
+        "key": "params_image"
+      },
+      {
+        "group": "参数行",
+        "key": "params_image_mono"
+      },
+      {
+        "group": "参数行",
+        "key": "params_image_color"
+      },
+      {
+        "group": "参数行",
+        "key": "params_image_opacity"
+      },
+      {
+        "group": "日期行",
+        "key": "date_show"
+      },
+      {
+        "group": "日期行",
+        "key": "date_text"
+      },
+      {
+        "group": "日期行",
+        "key": "date_cap_ratio"
+      },
+      {
+        "group": "日期行",
+        "key": "date_bold"
+      },
+      {
+        "group": "日期行",
+        "key": "date_color"
+      },
+      {
+        "group": "日期行",
+        "key": "date_align"
+      },
+      {
+        "group": "日期行",
+        "key": "date_width_ratio"
+      },
+      {
+        "group": "日期行",
+        "key": "date_tracking"
+      },
+      {
+        "group": "日期行",
+        "key": "date_font"
+      },
+      {
+        "group": "日期行",
+        "key": "date_image"
+      },
+      {
+        "group": "日期行",
+        "key": "date_image_mono"
+      },
+      {
+        "group": "日期行",
+        "key": "date_image_color"
+      },
+      {
+        "group": "日期行",
+        "key": "date_image_opacity"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_scale"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_x"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_y"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_rotation"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_opacity"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_color"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_mono"
+      }
+    ],
+    "description": "背景模糊：用照片自己的模糊画像铺满外围（可压暗、降饱和、加暗角），中心照片带投影；底边留一块写四行文字（主标题=厂商+型号、品牌/参数/日期行），四行的字体/贴图/对齐都能单独调，也能在照片上摆 logo",
+    "kind": "blur_backdrop",
+    "name": "背景模糊 · 品牌信息",
+    "params": {
+      "bg_blur_ratio": 0.025,
+      "bg_brightness": -18.0,
+      "bg_saturation": 100.0,
+      "bg_vignette": 0.45,
+      "bg_vignette_color": "#000000",
+      "bg_vignette_start": 0.3,
+      "bg_zoom_ratio": 1.06,
+      "brand_align": "center",
+      "brand_bold": true,
+      "brand_cap_ratio": 0.026,
+      "brand_color": "#000000",
+      "brand_font": "",
+      "brand_image": "",
+      "brand_image_color": "",
+      "brand_image_mono": false,
+      "brand_image_opacity": 255,
+      "brand_show": false,
+      "brand_text": "",
+      "brand_tracking": 0.0,
+      "brand_width_ratio": 0.0,
+      "date_align": "center",
+      "date_bold": false,
+      "date_cap_ratio": 0.014,
+      "date_color": "#8d8d8d",
+      "date_font": "",
+      "date_image": "",
+      "date_image_color": "",
+      "date_image_mono": false,
+      "date_image_opacity": 255,
+      "date_show": false,
+      "date_text": "",
+      "date_tracking": 0.0,
+      "date_width_ratio": 0.0,
+      "font_family": "",
+      "frame_border_color": "#000000",
+      "frame_border_ratio": 0.0,
+      "frame_bottom": true,
+      "frame_bottom_extra_ratio": 0.2,
+      "frame_color": "#101418",
+      "frame_gap_ratio": 0.06,
+      "frame_left": true,
+      "frame_line_gap_ratio": 0.02,
+      "frame_opacity": 255,
+      "frame_right": true,
+      "frame_show": true,
+      "frame_text_margin_ratio": 0.04,
+      "frame_text_valign": "middle",
+      "frame_top": true,
+      "params_align": "center",
+      "params_bold": false,
+      "params_cap_ratio": 0.018,
+      "params_color": "#000000",
+      "params_font": "",
+      "params_image": "",
+      "params_image_color": "",
+      "params_image_mono": false,
+      "params_image_opacity": 255,
+      "params_show": true,
+      "params_text": "",
+      "params_tracking": 0.0,
+      "params_width_ratio": 0.0,
+      "photo_logo": "",
+      "photo_logo_color": "#000000",
+      "photo_logo_mono": false,
+      "photo_logo_opacity": 255,
+      "photo_logo_rotation": 0.0,
+      "photo_logo_scale": 0.25,
+      "photo_logo_x": 0.5,
+      "photo_logo_y": 0.88,
+      "photo_shadow_blur_ratio": 0.018,
+      "photo_shadow_color": "#000000",
+      "photo_shadow_opacity": 110,
+      "photo_shadow_show": true,
+      "photo_shadow_spread_ratio": 0.004,
+      "photo_shadow_x_ratio": 0.0,
+      "photo_shadow_y_ratio": 0.006,
+      "title_align": "center",
+      "title_bold": true,
+      "title_cap_ratio": 0.03,
+      "title_color": "#000000",
+      "title_font": "",
+      "title_image": "",
+      "title_image_color": "",
+      "title_image_mono": false,
+      "title_image_opacity": 255,
+      "title_show": true,
+      "title_text": "",
+      "title_tracking": 0.0,
+      "title_width_ratio": 0.0
+    }
+  },
+  "camera_bar_brand_logo": {
+    "controls": [
+      {
+        "group": "版式",
+        "key": "bar_mode"
+      },
+      {
+        "group": "版式",
+        "key": "bar_height_ratio"
+      },
+      {
+        "group": "版式",
+        "key": "margin_ratio"
+      },
+      {
+        "group": "版式",
+        "key": "divider_center_ratio"
+      },
+      {
+        "group": "文字",
+        "key": "font_scale"
+      },
+      {
+        "group": "文字",
+        "key": "left_text"
+      },
+      {
+        "group": "文字",
+        "key": "left_cap_ratio"
+      },
+      {
+        "group": "文字",
+        "key": "center_text"
+      },
+      {
+        "group": "文字",
+        "key": "center_cap_ratio"
+      },
+      {
+        "group": "文字",
+        "key": "params_text"
+      },
+      {
+        "group": "文字",
+        "key": "params_cap_ratio"
+      },
+      {
+        "group": "文字",
+        "key": "date_text"
+      },
+      {
+        "group": "文字",
+        "key": "date_cap_ratio"
+      },
+      {
+        "group": "文字",
+        "key": "center_tracking"
+      },
+      {
+        "group": "文字",
+        "key": "line_gap_ratio"
+      },
+      {
+        "group": "字体",
+        "key": "font_family"
+      },
+      {
+        "group": "字体",
+        "key": "left_font"
+      },
+      {
+        "group": "字体",
+        "key": "center_font"
+      },
+      {
+        "group": "字体",
+        "key": "params_font"
+      },
+      {
+        "group": "字体",
+        "key": "date_font"
+      },
+      {
+        "group": "分隔线",
+        "key": "divider_height_ratio"
+      },
+      {
+        "group": "分隔线",
+        "key": "divider_gap_ratio"
+      },
+      {
+        "group": "颜色",
+        "key": "date_color"
+      },
+      {
+        "group": "颜色",
+        "key": "divider_color"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "center_image"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "center_image_mono"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "center_image_color"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "center_image_opacity"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "left_image"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "left_hide_make"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "left_image_mono"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "left_image_color"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "left_image_opacity"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "params_image"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "params_image_mono"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "params_image_color"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "params_image_opacity"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "date_image"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "date_image_mono"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "date_image_color"
+      },
+      {
+        "group": "品牌贴图",
+        "key": "date_image_opacity"
+      }
+    ],
+    "description": "参照图版式：照片下方追加白条；左=型号（可只留型号）、中=品牌贴图或厂商名、右=参数/日期；字体、颜色、贴图都能自己调",
+    "kind": "exif_bar",
+    "name": "相机信息栏 · 我的水印",
+    "params": {
+      "bar_color": "#ffffff",
+      "bar_height_ratio": 0.13681,
+      "bar_mode": "append",
+      "bar_opacity": 255,
+      "center_bold": true,
+      "center_cap_ratio": 0.01736,
+      "center_color": "#000000",
+      "center_image": "",
+      "center_image_color": "",
+      "center_image_mono": false,
+      "center_image_opacity": 255,
+      "center_tracking": 0.22,
+      "center_width_ratio": 0.0993,
+      "date_cap_ratio": 0.01667,
+      "date_color": "#8d8d8d",
+      "date_image": "",
+      "date_image_color": "",
+      "date_image_mono": false,
+      "date_image_opacity": 255,
+      "date_width_ratio": 0.1882,
+      "divider_center_ratio": 0.62326,
+      "divider_color": "#c9c9c9",
+      "divider_gap_ratio": 0.0229,
+      "divider_height_ratio": 0.46193,
+      "divider_width_ratio": 0.00278,
+      "left_bold": true,
+      "left_cap_ratio": 0.025,
+      "left_color": "#000000",
+      "left_hide_make": true,
+      "left_image": "",
+      "left_image_color": "",
+      "left_image_mono": false,
+      "left_image_opacity": 255,
+      "left_width_ratio": 0.2556,
+      "line_gap_ratio": 0.02083,
+      "margin_ratio": 0.04236,
+      "params_cap_ratio": 0.02153,
+      "params_color": "#000000",
+      "params_image": "",
+      "params_image_color": "",
+      "params_image_mono": false,
+      "params_image_opacity": 255,
+      "params_width_ratio": 0.3111
+    }
+  },
+  "photo_frame_brand": {
+    "controls": [
+      {
+        "group": "留白与文字区",
+        "key": "frame_show"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_gap_ratio"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_color"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_opacity"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_top"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_bottom"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_left"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_right"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_bottom_extra_ratio"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_text_margin_ratio"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_line_gap_ratio"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_text_valign"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_border_ratio"
+      },
+      {
+        "group": "留白与文字区",
+        "key": "frame_border_color"
+      },
+      {
+        "group": "文字",
+        "key": "font_family"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_show"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_text"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_cap_ratio"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_bold"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_color"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_align"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_width_ratio"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_tracking"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_font"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_image"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_image_mono"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_image_color"
+      },
+      {
+        "group": "主标题行",
+        "key": "title_image_opacity"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_show"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_text"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_cap_ratio"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_bold"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_color"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_align"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_width_ratio"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_tracking"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_font"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_image"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_image_mono"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_image_color"
+      },
+      {
+        "group": "品牌行",
+        "key": "brand_image_opacity"
+      },
+      {
+        "group": "参数行",
+        "key": "params_show"
+      },
+      {
+        "group": "参数行",
+        "key": "params_text"
+      },
+      {
+        "group": "参数行",
+        "key": "params_cap_ratio"
+      },
+      {
+        "group": "参数行",
+        "key": "params_bold"
+      },
+      {
+        "group": "参数行",
+        "key": "params_color"
+      },
+      {
+        "group": "参数行",
+        "key": "params_align"
+      },
+      {
+        "group": "参数行",
+        "key": "params_width_ratio"
+      },
+      {
+        "group": "参数行",
+        "key": "params_tracking"
+      },
+      {
+        "group": "参数行",
+        "key": "params_font"
+      },
+      {
+        "group": "参数行",
+        "key": "params_image"
+      },
+      {
+        "group": "参数行",
+        "key": "params_image_mono"
+      },
+      {
+        "group": "参数行",
+        "key": "params_image_color"
+      },
+      {
+        "group": "参数行",
+        "key": "params_image_opacity"
+      },
+      {
+        "group": "日期行",
+        "key": "date_show"
+      },
+      {
+        "group": "日期行",
+        "key": "date_text"
+      },
+      {
+        "group": "日期行",
+        "key": "date_cap_ratio"
+      },
+      {
+        "group": "日期行",
+        "key": "date_bold"
+      },
+      {
+        "group": "日期行",
+        "key": "date_color"
+      },
+      {
+        "group": "日期行",
+        "key": "date_align"
+      },
+      {
+        "group": "日期行",
+        "key": "date_width_ratio"
+      },
+      {
+        "group": "日期行",
+        "key": "date_tracking"
+      },
+      {
+        "group": "日期行",
+        "key": "date_font"
+      },
+      {
+        "group": "日期行",
+        "key": "date_image"
+      },
+      {
+        "group": "日期行",
+        "key": "date_image_mono"
+      },
+      {
+        "group": "日期行",
+        "key": "date_image_color"
+      },
+      {
+        "group": "日期行",
+        "key": "date_image_opacity"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_scale"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_x"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_y"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_rotation"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_opacity"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_color"
+      },
+      {
+        "group": "照片 logo",
+        "key": "photo_logo_mono"
+      }
+    ],
+    "description": "拍立得风：照片四周留白、底边更高，文字写在底边空白里（主标题=厂商+型号、参数行，还可加品牌行/日期行）；四行的字体/贴图/对齐都能单独调，也能在照片上摆 logo",
+    "kind": "photo_frame",
+    "name": "画框水印 · 拍立得",
+    "params": {
+      "brand_align": "center",
+      "brand_bold": true,
+      "brand_cap_ratio": 0.026,
+      "brand_color": "#000000",
+      "brand_font": "",
+      "brand_image": "",
+      "brand_image_color": "",
+      "brand_image_mono": false,
+      "brand_image_opacity": 255,
+      "brand_show": false,
+      "brand_text": "",
+      "brand_tracking": 0.0,
+      "brand_width_ratio": 0.0,
+      "date_align": "center",
+      "date_bold": false,
+      "date_cap_ratio": 0.014,
+      "date_color": "#8d8d8d",
+      "date_font": "",
+      "date_image": "",
+      "date_image_color": "",
+      "date_image_mono": false,
+      "date_image_opacity": 255,
+      "date_show": false,
+      "date_text": "",
+      "date_tracking": 0.0,
+      "date_width_ratio": 0.0,
+      "font_family": "",
+      "frame_border_color": "#000000",
+      "frame_border_ratio": 0.0,
+      "frame_bottom": true,
+      "frame_bottom_extra_ratio": 0.22,
+      "frame_color": "#ffffff",
+      "frame_gap_ratio": 0.05,
+      "frame_left": true,
+      "frame_line_gap_ratio": 0.02,
+      "frame_opacity": 255,
+      "frame_right": true,
+      "frame_show": true,
+      "frame_text_margin_ratio": 0.04,
+      "frame_text_valign": "middle",
+      "frame_top": true,
+      "params_align": "center",
+      "params_bold": false,
+      "params_cap_ratio": 0.018,
+      "params_color": "#000000",
+      "params_font": "",
+      "params_image": "",
+      "params_image_color": "",
+      "params_image_mono": false,
+      "params_image_opacity": 255,
+      "params_show": true,
+      "params_text": "",
+      "params_tracking": 0.0,
+      "params_width_ratio": 0.0,
+      "photo_logo": "",
+      "photo_logo_color": "#000000",
+      "photo_logo_mono": false,
+      "photo_logo_opacity": 255,
+      "photo_logo_rotation": 0.0,
+      "photo_logo_scale": 0.25,
+      "photo_logo_x": 0.5,
+      "photo_logo_y": 0.9,
+      "title_align": "center",
+      "title_bold": true,
+      "title_cap_ratio": 0.03,
+      "title_color": "#000000",
+      "title_font": "",
+      "title_image": "",
+      "title_image_color": "",
+      "title_image_mono": false,
+      "title_image_opacity": 255,
+      "title_show": true,
+      "title_text": "",
+      "title_tracking": 0.0,
+      "title_width_ratio": 0.0
+    }
+  }
+}

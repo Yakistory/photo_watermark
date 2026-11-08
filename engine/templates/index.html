@@ -1,0 +1,3449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="wm-version" content="preset-v4">
+<title>图像 EXIF 编辑器 & 水印工具</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #242836;
+  --border: #2e3345;
+  --text: #e4e6ef;
+  --text2: #8b8fa3;
+  --accent: #6c5ce7;
+  --accent2: #a29bfe;
+  --danger: #e74c3c;
+  --success: #2ecc71;
+  --radius: 8px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.app-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+}
+
+.app-header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.app-header .badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 10px;
+}
+
+.main-layout {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  height: calc(100vh - 57px);
+}
+
+/* Left: Preview Area */
+.preview-area {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.upload-zone {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--border);
+  margin: 20px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  min-height: 300px;
+}
+
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--accent);
+  background: rgba(108, 92, 231, 0.05);
+}
+
+.upload-zone.has-image {
+  border-style: solid;
+  cursor: default;
+  margin: 12px;
+}
+
+.upload-zone .placeholder {
+  text-align: center;
+  color: var(--text2);
+}
+
+.upload-zone .placeholder svg {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+.upload-zone .placeholder p {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.upload-zone .placeholder small {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.preview-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.preview-container img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.image-info-bar {
+  padding: 8px 20px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.image-info-bar span { display: flex; align-items: center; gap: 4px; }
+
+/* Right: Control Panel */
+.control-panel {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent2); border-bottom-color: var(--accent); }
+
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* EXIF Panel */
+.exif-section {
+  margin-bottom: 20px;
+}
+
+.exif-section h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text2);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.exif-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.exif-row label {
+  color: var(--text2);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exif-row input {
+  width: 100%;
+  padding: 5px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.exif-row input:focus { border-color: var(--accent); }
+
+.exif-row input.binary {
+  opacity: 0.5;
+  cursor: not-allowed;
+  font-style: italic;
+}
+
+/* 字段值单元格 + 来源/缺失徽章（身份字段缺失时也要留输入框，用户能直接补录） */
+.exif-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.exif-field input { flex: 1; min-width: 0; }
+
+.exif-row input.missing {
+  border-style: dashed;
+  color: var(--text2);
+}
+
+.exif-row input.missing::placeholder { color: #6b7085; }
+
+.field-badge {
+  flex: none;
+  font-size: 10px;
+  line-height: 1.6;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text2);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.field-badge.src { color: var(--accent2); border-color: var(--accent2); }
+.field-badge.missing { color: #e0a030; border-color: #e0a030; }
+
+.exif-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Watermark Panel */
+.wm-group {
+  margin-bottom: 16px;
+}
+
+.wm-group label {
+  display: block;
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.wm-group input[type="text"],
+.wm-group select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.wm-group input[type="text"]:focus,
+.wm-group input[type="number"]:focus,
+.wm-group select:focus { border-color: var(--accent); }
+
+.wm-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wm-slider-row input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 4px;
+  background: var(--surface2);
+  border-radius: 2px;
+  outline: none;
+}
+
+.wm-slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* 数字手输框：与滑块同一数值口径（%/‰/px/°…），拖着调完可以直接敲数字 */
+.wm-slider-row input.wm-num {
+  flex: none;
+  width: 64px;
+  padding: 5px 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+.wm-slider-row input.wm-num:focus { border-color: var(--accent); }
+
+.wm-slider-row .wm-unit {
+  font-size: 12px;
+  color: var(--text2);
+  min-width: 16px;
+}
+
+.wm-color-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wm-color-row input[type="color"] {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  background: none;
+  padding: 2px;
+}
+
+.wm-color-row .color-presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.color-preset {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.color-preset:hover { border-color: var(--text2); }
+
+.wm-position-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  max-width: 150px;
+}
+
+.pos-btn {
+  padding: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text2);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.pos-btn:hover { border-color: var(--accent); color: var(--text); }
+.pos-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.wm-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.wm-checkbox input { accent-color: var(--accent); }
+
+/* 模板（Preset）卡片：模板内容与控件描述都由后端下发，前端只负责画 */
+.wm-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.wm-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.wm-card-title { font-size: 12px; font-weight: 600; color: var(--text); }
+
+.wm-preset-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.wm-preset-chip {
+  padding: 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text2);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.wm-preset-chip:hover { border-color: var(--accent); color: var(--text); }
+.wm-preset-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.wm-preset-group { margin-top: 14px; }
+.wm-preset-group .wm-group:last-child { margin-bottom: 0; }
+
+.wm-preset-group-title {
+  font-size: 11px;
+  color: var(--accent2);
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+
+.wm-hint-inline { margin-left: 6px; font-weight: 400; font-size: 11px; color: var(--text2); }
+
+/* 品牌贴图槽位：上=状态行（当前贴图 + 上传/用文字/删除），下=库缩略图条（点一下就套用） */
+.wm-brand-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.wm-brand-thumb {
+  width: auto;
+  height: 26px;
+  max-width: 96px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px;
+  flex: none;
+}
+
+.wm-brand-meta {
+  flex: 1;
+  min-width: 90px;
+  font-size: 11px;
+  color: var(--text2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wm-brand-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.wm-brand-pick {
+  width: 46px;
+  height: 32px;
+  padding: 3px;
+  background: #fff;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  flex: none;
+}
+
+.wm-brand-pick img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+.wm-brand-pick.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.28);
+}
+
+.wm-brand-add {
+  width: 46px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--text2);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
+}
+
+.wm-brand-add:hover { border-color: var(--accent); color: var(--text); }
+
+.wm-brand-empty { font-size: 11px; color: var(--text2); }
+
+/* 字体槽位：下拉 + 上传/删除按钮同一行 */
+.wm-font-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wm-font-row select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.wm-mini-btn {
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text2);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: none;
+}
+
+.wm-mini-btn:hover { border-color: var(--accent); color: var(--text); }
+.wm-mini-btn.danger:hover { border-color: #e05252; color: #e05252; }
+.wm-mini-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.wm-mini-btn:disabled:hover { border-color: var(--border); color: var(--text2); }
+
+/* 配置卡片（自动保存槽 + 命名快照 + 导出/导入） */
+.wm-cfg-row { display: flex; align-items: center; gap: 6px; }
+
+.wm-cfg-row select,
+.wm-cfg-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.wm-cfg-status { font-size: 11px; color: var(--text2); white-space: nowrap; margin: 0; }
+.wm-cfg-hint { margin-top: 10px; font-size: 11px; color: var(--text2); line-height: 1.6; }
+
+/* 导出选项 */
+.wm-export-row { display: flex; flex-direction: column; gap: 8px; }
+
+/* Buttons */
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover { opacity: 0.9; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.wm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* Re-upload button */
+.reupload-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 6px 12px;
+  background: rgba(26, 29, 39, 0.85);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.reupload-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Watermark type toggle */
+.wm-type-toggle {
+  display: flex;
+  flex-wrap: wrap;              /* 5 个类型按钮：窄面板下折一行，别挤成两字一行 */
+  gap: 3px;
+  background: var(--surface2);
+  border-radius: var(--radius);
+  padding: 3px;
+  margin-bottom: 16px;
+}
+
+.wm-type-btn {
+  flex: 1 1 68px;
+  padding: 7px 6px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text2);
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.wm-type-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Watermark image upload */
+.wm-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.wm-upload-btn {
+  flex: 1;
+  padding: 10px;
+  background: var(--surface2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text2);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.wm-upload-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.wm-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  display: none;
+}
+
+.wm-remove-btn {
+  padding: 4px 8px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text2);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.wm-remove-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* ---------------------------------------------------------------------------
+   图片水印 DOM 代理层：拖动/缩放全部在前端完成（0 请求、即时反馈），
+   坐标与后端一致（x/y 为水印中心归一化坐标，scale 为占画布宽度比例），
+   下载时才由后端按同一套参数做权威合成。
+   --------------------------------------------------------------------------- */
+.preview-container { position: relative; }
+
+.wm-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  pointer-events: none;
+  z-index: 5;
+  /* 真实位置/尺寸由 layoutWmLayer() 按 <img> 的 getBoundingClientRect 覆盖，
+     因为父容器是 flex + padding 居中，图片盒子与容器内边缘并不重合。 */
+}
+
+.wm-layer.active { display: block; }
+
+.wm-item {
+  position: absolute;
+  pointer-events: auto;
+  cursor: move;
+  transform-origin: center center;
+  touch-action: none;
+  user-select: none;
+}
+
+.wm-item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.wm-item.selected { outline: 1px dashed var(--accent); outline-offset: 2px; }
+
+.wm-item .wm-handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.wm-item .wm-del {
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(26, 29, 39, 0.9);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: none;
+}
+
+.wm-item.selected .wm-del { display: block; }
+.wm-item .wm-del:hover { color: var(--danger); border-color: var(--danger); }
+
+/* 已导入水印列表 */
+.wm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.wm-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text2);
+  cursor: pointer;
+}
+
+.wm-list-item.active { border-color: var(--accent); color: var(--text); }
+.wm-list-item img { width: 26px; height: 26px; object-fit: contain; background: rgba(0, 0, 0, 0.25); border-radius: 4px; }
+.wm-list-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wm-list-item .del {
+  padding: 2px 6px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text2);
+  font-size: 11px;
+  cursor: pointer;
+}
+.wm-list-item .del:hover { color: var(--danger); border-color: var(--danger); }
+
+.wm-hint {
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.7;
+  margin: -4px 0 12px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text2);
+  font-size: 13px;
+}
+
+.empty-state svg {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 12px;
+  opacity: 0.3;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  padding: 10px 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text);
+  transition: transform 0.3s;
+  z-index: 100;
+}
+
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.error { border-color: var(--danger); }
+.toast.success { border-color: var(--success); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+@media (max-width: 800px) {
+  .main-layout { grid-template-columns: 1fr; }
+  .control-panel { border-left: none; border-top: 1px solid var(--border); max-height: 50vh; }
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>EXIF & Watermark Studio</h1>
+  <span class="badge">v1.0</span>
+  <span class="badge" id="buildTag" title="前端构建号：排查“浏览器还在用旧页面”时对一眼"></span>
+</header>
+
+<div class="main-layout">
+  <!-- Left: Preview -->
+  <div class="preview-area">
+    <div class="upload-zone" id="uploadZone">
+      <div class="placeholder" id="uploadPlaceholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <p>拖拽图片到此处或点击上传</p>
+        <small>支持 JPG / PNG / TIFF / WebP</small>
+      </div>
+      <div class="preview-container" id="previewContainer" style="display:none">
+        <img id="previewImage" alt="Preview">
+        <div class="wm-layer" id="wmLayer"></div>
+        <div class="wm-layer" id="wmLogoLayer"></div>
+        <button class="reupload-btn" id="reuploadBtn" title="清除当前图片并重新导入">重新导入</button>
+      </div>
+    </div>
+    <div class="image-info-bar" id="infoBar" style="display:none">
+      <span id="infoSize"></span>
+      <span id="infoFormat"></span>
+      <span id="infoMode"></span>
+    </div>
+  </div>
+
+  <!-- Right: Controls -->
+  <div class="control-panel">
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="exif">EXIF 参数</button>
+      <button class="tab-btn" data-tab="watermark">水印编辑</button>
+    </div>
+    <div class="tab-content">
+      <!-- EXIF Tab -->
+      <div class="tab-pane active" id="tab-exif">
+        <div id="exifContent">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+              <circle cx="12" cy="13" r="3"/>
+            </svg>
+            <p>上传图片后查看 EXIF 信息</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Watermark Tab -->
+      <div class="tab-pane" id="tab-watermark">
+        <div id="watermarkContent">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+            </svg>
+            <p>上传图片后编辑水印</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="fileInput" accept="image/*" style="display:none">
+<input type="file" id="wmFileInput" accept="image/*" multiple style="display:none">
+
+<script>
+// 构建标记：排查“浏览器用的还是旧版页面”这类问题时，控制台一眼可见
+// 注意：index.html 由 Flask 模板缓存，改完**必须重启服务**才生效（除非开了 TEMPLATES_AUTO_RELOAD）。
+const WM_BUILD = 'preset-v14';
+console.log('[wm] build', WM_BUILD);
+const buildTag = document.getElementById('buildTag');
+if (buildTag) buildTag.textContent = WM_BUILD;
+
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+let currentImage = null;   // 预览底图 data URL（不含任何水印叠加）
+let imageInfo = null;      // 原图信息（width/height/format）——品牌贴图「建议 ≥N px 高」提示要用原图宽
+let exifData = {};
+let watermarkType = 'text';
+// 图片水印（可多张）：{ key, id, src, natW, natH, x, y, scale, rotation, opacity }
+// x/y = 水印中心归一化坐标(0~1)；scale = 占画布宽度比例；rotation = 角度(与后端 Pillow 同向)
+let wmItems = [];
+let selectedWmKey = null;
+let wmSeq = 0;
+
+// 模板（Preset）：列表与控件描述都来自后端 /api/watermark/presets。
+// activePreset.params 是「当前工作副本」——滑块改动只动它，不改后端下发的模板定义。
+let wmPresets = [];
+let activePreset = null;
+// 导出选项（只影响下载；默认 jpeg/95 与历史行为一致）
+let wmExport = { format: 'jpeg', quality: 95 };
+// 模板 kind（决定参数表）→ 水印 type（决定渲染分支），与后端 _PRESET_KIND_TO_TYPE 对应
+const PRESET_KIND_TO_TYPE = { exif_bar: 'exif', photo_frame: 'frame', blur_backdrop: 'blur', text: 'text', image: 'image' };
+const PRESET_CHOICE_LABELS = {
+  append: '追加白条（画布加高）',
+  overlay: '压在照片下沿（画布不变）',
+  columns: '左右分栏（参照图版式）',
+  stacked: '居中竖排（品牌在上、参数在下）',
+  auto: '跟随版式',
+  left: '居左',
+  center: '居中',
+  right: '居右',
+  top: '靠上',
+  middle: '居中',
+  bottom: '靠下',
+};
+// 品牌贴图库：后端 brands/ 目录里的长期资源（跨会话保留、reset 不清），
+// 模板参数用贴图 id 引用它 ⇒ 信息栏的「厂商文字」可以换成自己上传的 logo。
+let wmBrands = [];
+const BRAND_CHOICE_KEY = 'wm.brand.choices';   // 记住「某个槽位上次选了哪张」，下次自动带回
+
+async function loadPresets() {
+  try {
+    const res = await fetch('/api/watermark/presets');
+    const data = await res.json();
+    wmPresets = data.presets || [];
+    (wmPresets || []).forEach(p => {
+      if (p.invalid_params && p.invalid_params.length) {
+        console.warn('[wm] 模板', p.id, '里有被忽略的键:', p.invalid_params);
+      }
+    });
+    console.log('[wm] presets', wmPresets.map(p => p.id), '控件数', wmPresets.map(p => (p.controls || []).length));
+  } catch (e) {
+    wmPresets = [];
+  }
+  // 还没上传图片时保持原样的空状态，上传后 renderWatermark() 会带上模板卡片
+  if (currentImage) renderWatermark();
+}
+
+// 品牌贴图列表：贴图是长期资源，页面一打开就拉一次，控件里的下拉框据此生成
+async function loadBrands() {
+  try {
+    const res = await fetch('/api/brand/list');
+    const data = await res.json();
+    wmBrands = Array.isArray(data.items) ? data.items : [];
+    // 后端会把「直接丢进 brands/ 目录的散图」收编进库（库只认 brand_<id>.png 文件名），
+    // 收编了就说一声，免得用户以为：① 我的文件被删了 ② 列表怎么自己多了一张
+    const adopted = Array.isArray(data.adopted) ? data.adopted : [];
+    if (adopted.length) {
+      const names = wmBrands.filter(b => adopted.includes(b.id)).map(b => b.name).join('、');
+      showToast(`已把 brands/ 目录里的 ${adopted.length} 张图收编进贴图库：${names}`, 'success');
+    }
+  } catch (e) {
+    wmBrands = [];   // 贴图库读不到不影响其它功能，只是缩略图条里没得选
+  }
+  console.log('[wm] brands', wmBrands.map(b => `${b.id}:${b.name}`));
+  return wmBrands;
+}
+
+function brandChoices() {
+  try { return JSON.parse(localStorage.getItem(BRAND_CHOICE_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+
+function saveBrandChoice(key, id) {
+  try {
+    const all = brandChoices();
+    all[key] = id || '';
+    localStorage.setItem(BRAND_CHOICE_KEY, JSON.stringify(all));
+  } catch (e) { /* 隐私模式等 localStorage 不可用时忽略：只是记不住选择 */ }
+}
+
+// ---------------------------------------------------------------------------
+// 字体槽位（信息栏四段文字 + 全局字体）：选项由后端下发（系统字体已按本机文件存在
+// 过滤 + 我上传的字体），前端只负责渲染、以及上传/删除后**原地更新 options** ——
+// 绝不重新 applyPreset：那会重建工作副本，把用户已经调好的参数全部冲掉。
+// ---------------------------------------------------------------------------
+const FONT_UPLOAD_GROUP = '我上传的';
+let fontFileInput = null;
+
+function fontOptionsHtml(c, cur) {
+  const opts = Array.isArray(c.options) ? c.options : [];
+  const groups = new Map();
+  opts.forEach(o => {
+    const g = o.group || '';
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(o);
+  });
+  let html = '';
+  for (const [g, list] of groups) {
+    const inner = list.map(o => {
+      const v = String(o.value);
+      return `<option value="${escapeHtml(v)}" ${v === cur ? 'selected' : ''}>${escapeHtml(String(o.label))}</option>`;
+    }).join('');
+    html += g ? `<optgroup label="${escapeHtml(g)}">${inner}</optgroup>` : inner;
+  }
+  if (cur && !opts.some(o => String(o.value) === cur)) {
+    // 引用的字体不在了（删掉 / 换了机器）：留一行占位，别让它悄悄变成「自动」还查不出原因
+    html += `<option value="${escapeHtml(cur)}" selected>${escapeHtml(cur)}（不在字体库里）</option>`;
+  }
+  return html;
+}
+
+function isUploadedFont(c, id) {
+  if (!id) return false;
+  // 只看本控件的选项：选项就是后端下发的那份，比全局扫一遍更可靠（渲染时选项一定在手上）
+  return ((c && c.options) || []).some(o =>
+    String(o.value) === id && o.group === FONT_UPLOAD_GROUP);
+}
+
+function fontStateText(c, cur) {
+  if (!cur) return '当前：自动（按文字语言挑选字体）';
+  const found = (c.options || []).find(o => String(o.value) === cur);
+  if (!found) return `当前：${cur}（不在字体库里，预览会回落到自动字体）`;
+  return `当前：${found.label}${found.group === FONT_UPLOAD_GROUP ? '（我上传的字体）' : ''}`;
+}
+
+// 上传/删除后原地刷新字体选项；模板定义与工作副本一起更新（两边引用同一批控件对象）
+function applyFontList(fonts) {
+  if (!Array.isArray(fonts)) return;
+  (wmPresets || []).forEach(p => (p.controls || []).forEach(c => {
+    if (c.type === 'font_ref') c.options = fonts;
+  }));
+  if (activePreset) (activePreset.controls || []).forEach(c => {
+    if (c.type === 'font_ref') c.options = fonts;
+  });
+}
+
+function pickFontFile(key) {
+  if (!fontFileInput) {
+    fontFileInput = document.createElement('input');
+    fontFileInput.type = 'file';
+    fontFileInput.accept = '.ttf,.otf,.ttc,.ttf2,font/*';
+    fontFileInput.style.display = 'none';
+    document.body.appendChild(fontFileInput);
+  }
+  fontFileInput.value = '';
+  fontFileInput.onchange = () => {
+    const f = fontFileInput.files && fontFileInput.files[0];
+    if (f) uploadFontFile(f, key);
+  };
+  fontFileInput.click();
+}
+
+async function uploadFontFile(file, key) {
+  if (file.size > 20 * 1024 * 1024) { showToast('字体文件超过 20MB 上限', 'error'); return; }
+  showToast('正在导入字体...', '');
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const res = await fetch('/api/font/upload', { method: 'POST', body: form });
+    let data = {};
+    try { data = await res.json(); } catch (e) { /* 非 JSON 响应（例如 413 HTML） */ }
+    if (!res.ok || data.error) { showToast(data.error || `导入失败 (HTTP ${res.status})`, 'error'); return; }
+    applyFontList(data.fonts);
+    if (activePreset && key) activePreset.params[key] = data.id;   // 传完直接给这个槽位套上
+    renderPresetUI();
+    showToast(`字体已导入：${data.name || data.id}`, 'success');
+    if (currentImage) previewWatermark();
+  } catch (e) {
+    showToast('字体导入失败: ' + e.message, 'error');
+  }
+}
+
+async function removeFontFile(id) {
+  if (!id) return;
+  if (!window.confirm('删除这个字体？用到它的模板会自动回落到自动字体。')) return;
+  try {
+    const res = await fetch('/api/font/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+    applyFontList(data.fonts);
+  } catch (e) {
+    showToast('删除失败: ' + e.message, 'error');
+    return;
+  }
+  // 引用了这个字体的槽位一律清空（回落自动）：参数绝不指向已经不存在的 id
+  if (activePreset) {
+    Object.keys(activePreset.params).forEach(k => {
+      if (activePreset.params[k] === id) activePreset.params[k] = '';
+    });
+  }
+  renderPresetUI();
+  showToast('字体已删除', '');
+  if (currentImage) previewWatermark();
+}
+
+// 记住的选择只在「贴图还在库里」时带回来，否则空串（照旧用文字）
+function rememberedBrand(key) {
+  const id = brandChoices()[key];
+  return id && wmBrands.some(b => b.id === id) ? id : '';
+}
+
+// ---------------------------------------------------------------------------
+// 配置持久化：服务端 configs/current.json = 自动保存槽；configs/<id>.json = 命名快照
+//
+// 语义只有一条：**当前生效的配置永远只有一份**（服务端的 current）。
+// 前端只做两件事：
+//   ① collectConfig()  —— 把界面上的参数收成一个配置对象 → 防抖 POST /api/config/save
+//   ② applyConfig(cfg) —— 把配置写回界面（模板 / 类型 / 控件 / 图片水印位置）
+// 于是「调完参数刷新页面还在」「导出 → 改乱 → 导入 → 一模一样」都靠这一条约定；
+// 合法化（范围夹紧、未知键丢弃、模板是否存在）只在后端 _normalize_config 一个入口，
+// 前端不做第二套校验，避免两边规则漂移。
+// 配置文件里只放参数与引用 id（模板/贴图/字体/图片水印），图片文件本身不进配置。
+// ---------------------------------------------------------------------------
+let wmConfig = null;        // 上次读到的「当前配置」：上传图片后据此还原界面
+let wmConfigSlots = [];     // 命名快照清单（下拉切换用）
+let wmConfigTimer = null;   // 自动保存防抖
+let wmConfigBusy = false;   // 正在套用/导入/恢复默认：这期间不自动保存（否则会自己盖自己）
+let wmConfigStamp = 0;      // 服务端 current.json 的 mtime（页面上显示「已自动保存 …」）
+let wmConfigError = '';         // 自动保存失败原因（非空 = 状态行变红：目录只读这类问题一眼可见）
+let wmConfigSaveWarned = false; // 失败 toast 只弹一次，别让 600ms 防抖刷屏
+let wmConfigJsonOpen = false;   // 「查看 JSON」面板是否展开（这卡片会被重建，得记在变量里）
+const CFG_TYPES = ['text', 'image', 'exif', 'frame', 'blur'];
+const CFG_TYPE_LABEL = { text: '文字', image: '图片', exif: '信息栏', frame: '画框水印', blur: '背景模糊' };
+const CFG_EXPORT_FORMATS = ['jpeg', 'png', 'original'];
+
+// 界面状态 → 配置对象。字段与后端 _normalize_config 一一对应（text/exif/legacy 是
+// 老前端那套固定字段，params 是模板参数；两者都要存，切回模板/切回默认风格都不丢）。
+function collectConfig() {
+  const params = {};
+  if (activePreset) Object.assign(params, activePreset.params);
+  const pos = $('.pos-btn.active');
+  const val = id => { const el = $(`#${id}`); return el ? el.value : ''; };
+  return {
+    type: watermarkType,
+    preset: activePreset ? activePreset.id : '',
+    params,
+    text: {
+      text: val('wmText'),
+      font_size: Number(val('wmFontSize') || 36),
+      color: val('wmColor') || '#ffffff',
+      bold: !!($('#wmBold') && $('#wmBold').checked),
+    },
+    exif: {
+      font_size: Number(val('wmExifFontSize') || 0),
+      bar_color: val('wmBarColor') || '#ffffff',
+      text_color: val('wmTextColor') || '#000000',
+      bar_opacity: Number(val('wmOpacity') || 240),
+    },
+    legacy: {
+      position_x: Number(pos ? pos.dataset.x : 0.5),
+      position_y: Number(pos ? pos.dataset.y : 0.5),
+      rotation: Number(val('wmRotation') || 0),
+      opacity: Number(val('wmOpacity') || 128),
+    },
+    export: { format: wmExport.format, quality: Number(wmExport.quality) },
+    image: { items: wmItems.map(cfgItemOf) },
+  };
+}
+
+// 图片水印只存「引用 id + 几何量」：图片文件在 uploads/watermark_<id>.png 里
+function cfgItemOf(it) {
+  return {
+    id: it.id,
+    x: roundTo(it.x, 5),
+    y: roundTo(it.y, 5),
+    scale: roundTo(it.scale, 5),
+    rotation: roundTo(it.rotation, 2),
+    opacity: Math.round(it.opacity),
+  };
+}
+
+// 面板重建后把配置值写回控件。数字框显示的是「人话单位」（透明度是 %），
+// 要跟滑块一起写 —— 滑块是唯一真值来源，数字框只是它的显示。
+function setRangeAndNum(id, rangeVal, numVal) {
+  const r = $(`#${id}`);
+  if (r) r.value = String(rangeVal);
+  const n = $(`#${id}Num`);
+  if (n) n.value = String(numVal == null ? rangeVal : numVal);
+}
+
+function applyConfigFields(cfg) {
+  const t = cfg.text || {}, e = cfg.exif || {}, l = cfg.legacy || {};
+  if ($('#wmText')) $('#wmText').value = t.text || '';
+  setRangeAndNum('wmFontSize', finiteNum(t.font_size, 36));
+  if ($('#wmColor')) $('#wmColor').value = t.color || '#ffffff';
+  if ($('#wmBold')) $('#wmBold').checked = !!t.bold;
+  setRangeAndNum('wmExifFontSize', finiteNum(e.font_size, 0));
+  if ($('#wmBarColor')) $('#wmBarColor').value = e.bar_color || '#ffffff';
+  if ($('#wmTextColor')) $('#wmTextColor').value = e.text_color || '#000000';
+  // 透明度滑块在文字水印与信息栏之间是共用的（老页面就这一个），按当前类型取对应那份
+  const opacity = watermarkType === 'exif' ? finiteNum(e.bar_opacity, 240) : finiteNum(l.opacity, 128);
+  const opClamped = Math.min(255, Math.max(10, Math.round(opacity)));
+  setRangeAndNum('wmOpacity', opClamped, roundTo(opClamped / 255 * 100, 0));
+  setRangeAndNum('wmRotation', finiteNum(l.rotation, 0));
+  // 位置按钮：命中九宫格才点亮；配置里的值不在网格上就保持原样（手改文件才会遇到）
+  $$('.pos-btn').forEach(b => {
+    b.classList.toggle('active',
+      Math.abs(Number(b.dataset.x) - finiteNum(l.position_x, 0.5)) < 1e-6
+      && Math.abs(Number(b.dataset.y) - finiteNum(l.position_y, 0.5)) < 1e-6);
+  });
+  const sel = $('#wmExportFormat');
+  if (sel) sel.value = wmExport.format;
+  setRangeAndNum('wmQuality', wmExport.quality);
+  updateExportHint();
+  // 图片水印：几何量已经在 wmItems 上，这里把列表与滑块同步过来
+  syncWmItemPanel(selectedWmItem());
+  renderWmItemList();
+}
+
+// 套用配置：先按配置改状态（类型/模板/导出选项/图片水印几何），再重建面板，
+// 最后把文字、信息栏这些**只活在 DOM 里**的值写回控件 —— 顺序不能反，
+// renderWatermark() 会按模板里的默认 value 重建输入框，先写就白写了。
+// 返回没能还原的图片水印数量（配置文件里引用的图片已经不在 uploads/ 里）。
+function applyConfig(cfg) {
+  if (!cfg) return 0;
+  wmConfigBusy = true;
+  let missing = 0;
+  try {
+    watermarkType = CFG_TYPES.includes(cfg.type) ? cfg.type : watermarkType;
+    // 模板不在库里就按「不用模板」处理（后端 likewise 清空 preset 并回 preset_missing 警告）
+    const presetId = cfg.preset && (wmPresets || []).some(p => p.id === cfg.preset) ? cfg.preset : '';
+    if (cfg.preset && !presetId) console.warn('[cfg] 模板不在库里，按不用模板处理:', cfg.preset);
+    setActivePreset(presetId, cfg.params || {});
+    const exp = cfg.export || {};
+    wmExport.format = CFG_EXPORT_FORMATS.includes(exp.format) ? exp.format : 'jpeg';
+    wmExport.quality = Math.min(100, Math.max(1, finiteNum(exp.quality, 95)));
+    // 图片水印：按 id 找到当前列表里的那几张，复原位置/缩放/旋转/透明度
+    const wanted = (cfg.image && Array.isArray(cfg.image.items)) ? cfg.image.items : [];
+    wanted.forEach(ci => {
+      const it = wmItems.find(i => i.id === ci.id);
+      if (!it) { missing++; return; }
+      it.x = clamp01(finiteNum(ci.x, it.x));
+      it.y = clamp01(finiteNum(ci.y, it.y));
+      it.scale = Math.min(1, Math.max(0.02, finiteNum(ci.scale, it.scale)));
+      it.rotation = finiteNum(ci.rotation, it.rotation);
+      it.opacity = Math.round(finiteNum(ci.opacity, it.opacity));
+    });
+    if (selectedWmKey && !wmItems.some(i => i.key === selectedWmKey)) {
+      selectedWmKey = wmItems.length ? wmItems[0].key : null;
+    }
+    renderWatermark();       // 面板按新状态重建（类型/模板/导出选项都跟着变）
+    applyConfigFields(cfg);  // 再把「只存在 DOM 里」的值写回去
+    console.log('[cfg] applied', cfg, 'missing_items', missing);
+  } finally {
+    wmConfigBusy = false;    // 复原过程中不许自动保存，否则会把自己刚套上的数据盖回去
+  }
+  if (currentImage) previewWatermark();
+  return missing;
+}
+
+// ---- 自动保存 --------------------------------------------------------------
+// 任何参数改动最终都会走到这里（滑块/手输/颜色/文字/模板控件/贴图/字体/拖动水印），
+// 防抖 600ms 落盘 current.json —— 用户感觉不到请求，刷新页面参数还在。
+function scheduleConfigSave() {
+  if (!currentImage || wmConfigBusy) return;   // 没有底图就没什么可存的
+  clearTimeout(wmConfigTimer);
+  wmConfigTimer = setTimeout(saveConfigNow, 600);
+}
+
+async function saveConfigNow() {
+  if (!currentImage || wmConfigBusy) return;
+  clearTimeout(wmConfigTimer);
+  try {
+    const res = await fetch('/api/config/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config: collectConfig() }),
+    });
+    let data = {};
+    try { data = await res.json(); } catch (e) { /* 非 JSON 响应 */ }
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+    wmConfig = data.config;
+    wmConfigStamp = Number(data.saved_at || 0);
+    wmConfigError = '';              // 存上了就把上一次的失败提示清掉
+    wmConfigSaveWarned = false;
+    renderConfigStatus();
+    if (data.invalid_params && data.invalid_params.length) {
+      console.warn('[cfg] 自动保存时被忽略的键:', data.invalid_params);
+    }
+  } catch (err) {
+    // 自动保存失败必须显式暴露：部署目录只读 / 磁盘满时，光 console.warn 用户看不见，
+    // 会一直以为「参数已自动保存」，直到点导出才发现服务器上根本没有那份配置。
+    console.warn('[cfg] 自动保存失败', err);
+    wmConfigError = err.message || '自动保存失败';
+    renderConfigStatus();
+    if (!wmConfigSaveWarned) {
+      wmConfigSaveWarned = true;
+      showToast('参数自动保存失败: ' + wmConfigError, 'error');
+    }
+  }
+}
+
+// ---- 命名快照 + 导出/导入 ---------------------------------------------------
+// 下拉里显示「名字 · 模板/类型 · 时间」；清单由服务端 index.json 维护（清单丢了就用 id 当名字）
+function configSlotLabel(s) {
+  const kind = s.preset_name ? `模板「${s.preset_name}」` : (CFG_TYPE_LABEL[s.type] || '未设置类型');
+  const when = s.saved_at_text ? ` · ${s.saved_at_text.slice(5, 16)}` : '';
+  return `${s.name} · ${kind}${when}`;
+}
+
+function selectedConfigSlotId() {
+  const sel = $('#wmConfigSlot');
+  return sel ? sel.value : '';
+}
+
+function renderConfigStatus() {
+  const el = $('#wmConfigStatus');
+  if (!el) return;
+  if (wmConfigError) {
+    el.textContent = `自动保存失败：${wmConfigError}`;   // 显式报出来，别只躺在控制台里
+    el.style.color = '#e05252';
+    return;
+  }
+  el.style.color = '';
+  if (!wmConfigStamp) { el.textContent = '参数会自动保存'; return; }
+  const d = new Date(wmConfigStamp * 1000);
+  const hhmmss = [d.getHours(), d.getMinutes(), d.getSeconds()]
+    .map(n => String(n).padStart(2, '0')).join(':');
+  el.textContent = `已自动保存 ${hhmmss}`;
+}
+
+// 选中一套配置时「保存」按钮变成「覆盖保存」，这样「新建一套」与「更新已有的一套」
+// 都是显式动作，不靠记快捷键
+function updateConfigButtons() {
+  const has = !!selectedConfigSlotId();
+  ['wmConfigApply', 'wmConfigDelete'].forEach(id => {
+    const b = $(`#${id}`);
+    if (b) b.disabled = !has;
+  });
+  const nameEl = $('#wmConfigName');
+  const typed = nameEl ? nameEl.value.trim() : '';
+  const saveBtn = $('#wmConfigSaveAs');
+  if (saveBtn) {
+    const overwrite = has && !typed;
+    saveBtn.textContent = overwrite ? '覆盖保存' : '保存';
+    saveBtn.title = overwrite ? '用当前参数覆盖选中的那套配置' : '把当前这套参数存成一个命名配置';
+  }
+}
+
+// 下拉选项重画；能保留的选择就保留（做完一次操作别把选择跳掉）
+function renderConfigUI(slots) {
+  if (slots) wmConfigSlots = slots;
+  const sel = $('#wmConfigSlot');
+  if (sel) {
+    const keep = sel.value;
+    sel.innerHTML = '<option value="">（选择已保存的配置）</option>'
+      + (wmConfigSlots || []).map(s =>
+        `<option value="${escapeHtml(s.id)}">${escapeHtml(configSlotLabel(s))}</option>`).join('');
+    sel.value = (wmConfigSlots || []).some(s => s.id === keep) ? keep : '';
+  }
+  renderConfigStatus();
+  updateConfigButtons();
+}
+
+// 后端回显的告警 / 被丢弃的键 / 没找到文件的图片水印 —— 一律说出来，不静默
+function reportConfigNotes(data, missing) {
+  const notes = [];
+  const bad = (data && data.invalid_params) || [];
+  if (bad.length) {
+    notes.push(`被忽略的参数：${bad.join('、')}`);
+    console.warn('[cfg] 被忽略的键:', bad);
+  }
+  ((data && data.warnings) || []).forEach(w => {
+    const s = String(w);
+    if (s.indexOf('preset_missing:') === 0) {
+      notes.push(`模板「${s.slice('preset_missing:'.length).trim()}」已不在库里，已按不用模板处理`);
+    } else if (s.indexOf('migrated_v11:') === 0) {
+      // v11 的老配置会被搬成「画框水印」；搬不动的键也在这里点名（绝不静默丢参数）
+      notes.push(s.slice('migrated_v11:'.length).trim());
+    } else {
+      notes.push(s);
+    }
+  });
+  if (missing > 0) notes.push(`配置里 ${missing} 张图片水印的图片已不在 uploads/，已跳过`);
+  if (notes.length) showToast(notes.join('；'), '');
+  return notes;
+}
+
+async function configPost(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  });
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* 非 JSON 响应 */ }
+  if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+// 「切换」= 把快照拷回服务端 current 并套到界面上（current 永远是唯一真源）
+async function applyConfigSlot() {
+  const id = selectedConfigSlotId();
+  if (!id) { showToast('请先选择一套配置', 'error'); return; }
+  try {
+    const data = await configPost('/api/config/apply', { slot: id });
+    wmConfig = data.config;
+    wmConfigStamp = Number(data.saved_at || wmConfigStamp);
+    const missing = applyConfig(data.config);
+    reportConfigNotes(data, missing);
+    showToast('已切换到该配置', 'success');
+  } catch (err) {
+    showToast('切换失败: ' + err.message, 'error');
+  }
+}
+
+// 「保存」= 把**当前画面这一套**另存成命名快照。overwrite=true 覆盖下拉里选中的那套
+// （名字沿用输入框的内容，留空就用原名字），否则按新名字新建。
+async function saveConfigSlot(overwrite) {
+  const nameEl = $('#wmConfigName');
+  const slotId = overwrite ? selectedConfigSlotId() : '';
+  const current = (wmConfigSlots || []).find(s => s.id === slotId);
+  const typed = nameEl ? nameEl.value.trim() : '';
+  const name = typed || (current ? current.name : '');
+  if (!name) { showToast('请先给这套参数起个名字', 'error'); return; }
+  if (!overwrite && typed && (wmConfigSlots || []).some(s => s.name === typed)) {
+    showToast(`已经有一套叫「${typed}」的配置了，换个名字或选中它再覆盖保存`, 'error');
+    return;
+  }
+  try {
+    // 存的是前端当前状态（服务端 current 可能还在 600ms 防抖里没落盘）
+    const data = await configPost('/api/config/slots/save', {
+      name, config: collectConfig(), id: slotId,
+    });
+    if (nameEl) nameEl.value = '';
+    renderConfigUI(data.slots);
+    const sel = $('#wmConfigSlot');
+    if (sel && data.id) { sel.value = data.id; updateConfigButtons(); }
+    reportConfigNotes(data, 0);
+    showToast(overwrite ? `已更新配置「${data.name}」` : `已保存配置「${data.name}」`, 'success');
+  } catch (err) {
+    showToast('保存失败: ' + err.message, 'error');
+  }
+}
+
+async function deleteConfigSlot() {
+  const id = selectedConfigSlotId();
+  if (!id) { showToast('请先选择一套配置', 'error'); return; }
+  const slot = (wmConfigSlots || []).find(s => s.id === id);
+  if (!window.confirm(`删除配置「${slot ? slot.name : id}」？当前画面不受影响。`)) return;
+  try {
+    const data = await configPost('/api/config/slots/delete', { id });
+    renderConfigUI(data.slots);
+    showToast('已删除该配置', '');
+  } catch (err) {
+    showToast('删除失败: ' + err.message, 'error');
+  }
+}
+
+// 导出前先落盘：自动保存有 600ms 防抖，「刚改完就导出」否则会漏掉最后那一下。
+// 走 fetch + blob（与「下载图片」同一套路），不再用锚点跳转：锚点拿不到响应状态，
+// 宿主环境禁掉下载时会静默失败、提示照弹「已导出」（历史故障）。
+async function exportConfig() {
+  await saveConfigNow();
+  try {
+    const res = await fetch('/api/config/export');
+    if (!res.ok) {
+      let msg = `导出失败 (HTTP ${res.status})`;
+      try { const j = await res.json(); if (j.error) msg = j.error; } catch (e) { /* 非 JSON：保留 HTTP 文案 */ }
+      showToast(msg + '；已打开 JSON 面板，可直接复制', 'error');
+      await openConfigJson();
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // 文件名以后端为准（带时间戳），与「下载图片」同一个取法
+    a.download = filenameFromResponse(res, 'watermark-cfg.json');
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`已导出配置（${a.download}）`, 'success');
+  } catch (err) {
+    showToast('导出失败: ' + err.message + '；已打开 JSON 面板，可直接复制', 'error');
+    await openConfigJson();
+  }
+}
+
+// 「查看 JSON」：取 ?inline=1 的正文填进只读文本框。为什么必须有这条路 —— 有的部署环境 /
+// 预览 iframe 直接禁掉下载，导出文件永远到不了手；而导入接口认的就是这段 JSON 文本，
+// 复制走、存成文件、再导入 = 与下载文件完全等价（两条互为备份的通道）。
+async function openConfigJson() {
+  const box = $('#wmConfigJson');
+  const ta = $('#wmConfigJsonText');
+  if (!box || !ta) return;
+  wmConfigJsonOpen = true;
+  box.style.display = '';
+  ta.value = '正在读取…';
+  await saveConfigNow();                 // 先把最后那一下改动落盘，免得复制到旧参数
+  try {
+    const res = await fetch('/api/config/export?inline=1');
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try { const j = await res.json(); if (j.error) msg = j.error; } catch (e) { /* 非 JSON */ }
+      ta.value = `读取失败：${msg}`;
+      showToast('读取配置失败: ' + msg, 'error');
+      return;
+    }
+    const text = await res.text();
+    ta.value = text;
+    try { JSON.parse(text); } catch (e) { showToast('配置内容不是合法 JSON', 'error'); }
+  } catch (err) {
+    ta.value = '读取失败：' + err.message;
+    showToast('读取配置失败: ' + err.message, 'error');
+  }
+}
+
+function closeConfigJson() {
+  wmConfigJsonOpen = false;
+  const box = $('#wmConfigJson');
+  if (box) box.style.display = 'none';
+}
+
+function selectConfigJson() {
+  const ta = $('#wmConfigJsonText');
+  if (ta) { ta.focus(); ta.select(); }
+}
+
+async function copyConfigJson() {
+  const ta = $('#wmConfigJsonText');
+  if (!ta) return;
+  if (!ta.value || ta.value === '正在读取…') await openConfigJson();
+  const text = ta.value;
+  if (!text) return;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      ta.focus(); ta.select();
+      document.execCommand('copy');     // 非 https / 老浏览器兜底
+    }
+    showToast('配置 JSON 已复制到剪贴板', 'success');
+  } catch (err) {
+    ta.focus(); ta.select();            // 自动复制被拦：至少全选好，让用户自己 Ctrl+C
+    showToast('浏览器不允许自动复制，已全选，按 Ctrl+C 即可', 'error');
+  }
+}
+
+function openConfigJsonTab() {
+  // 新标签打开同一份 JSON：标签页里 Ctrl+S 也能另存，绕开预览环境的下载拦截
+  window.open('/api/config/export?inline=1', '_blank');
+}
+
+async function importConfigFile(file) {
+  if (!file) return;
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const res = await fetch('/api/config/import', { method: 'POST', body: form });
+    let data = {};
+    try { data = await res.json(); } catch (e) { /* 非 JSON 响应 */ }
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+    wmConfig = data.config;
+    wmConfigStamp = Number(data.saved_at || 0);
+    const missing = applyConfig(data.config);
+    renderConfigUI(data.slots);
+    reportConfigNotes(data, missing);
+    showToast(`已导入配置（${data.filename || '配置文件'}）`, 'success');
+  } catch (err) {
+    showToast('导入失败: ' + err.message, 'error');
+  }
+}
+
+// 「恢复默认」= 删掉自动保存的那一份 + 界面回到页面初始状态（命名快照保留）
+async function clearConfig() {
+  if (!window.confirm('恢复默认会清掉自动保存的这套参数（已命名的配置保留），继续？')) return;
+  let removed = false;
+  try {
+    const data = await configPost('/api/config/clear', {});
+    removed = !!data.removed;
+  } catch (err) {
+    showToast('恢复默认失败: ' + err.message, 'error');
+    return;
+  }
+  wmConfigBusy = true;
+  try {
+    watermarkType = 'text';
+    activePreset = null;
+    wmExport = { format: 'jpeg', quality: 95 };
+    renderWatermark();           // 面板按页面默认值重建 = 初始状态
+    wmConfig = collectConfig();  // 之后上传图片按「默认配置」还原（等于什么都不改）
+    // busy 还是 true ⇒ 这次预览不会顺手把默认值又写回 current.json
+    if (currentImage) previewWatermark();
+  } finally {
+    wmConfigBusy = false;
+  }
+  wmConfigStamp = 0;
+  renderConfigUI();
+  showToast(removed ? '已恢复默认参数' : '本来就没有自动保存的参数', '');
+}
+
+// 配置卡片是 renderWatermark() 每次重建的 DOM，因此每次都要重新绑一遍
+function bindConfigControls() {
+  if (!$('#wmConfigSlot')) return;
+  renderConfigUI();
+  $('#wmConfigSlot').addEventListener('change', updateConfigButtons);
+  $('#wmConfigApply').addEventListener('click', applyConfigSlot);
+  $('#wmConfigDelete').addEventListener('click', deleteConfigSlot);
+  $('#wmConfigExport').addEventListener('click', exportConfig);
+  $('#wmConfigImport').addEventListener('click', () => $('#wmConfigFile').click());
+  // 「查看 JSON」面板：下载被宿主禁掉时的第二条通道（复制走 → 存文件 → 导入）
+  const cfgViewBtn = $('#wmConfigView');
+  if (cfgViewBtn) cfgViewBtn.addEventListener('click', openConfigJson);
+  const cfgTabBtn = $('#wmConfigJsonTab');
+  if (cfgTabBtn) cfgTabBtn.addEventListener('click', openConfigJsonTab);
+  const cfgCopyBtn = $('#wmConfigJsonCopy');
+  if (cfgCopyBtn) cfgCopyBtn.addEventListener('click', copyConfigJson);
+  const cfgSelBtn = $('#wmConfigJsonSelect');
+  if (cfgSelBtn) cfgSelBtn.addEventListener('click', selectConfigJson);
+  const cfgCloseBtn = $('#wmConfigJsonClose');
+  if (cfgCloseBtn) cfgCloseBtn.addEventListener('click', closeConfigJson);
+  if (wmConfigJsonOpen) openConfigJson();   // 卡片被重建时把展开状态带回来
+  $('#wmConfigClear').addEventListener('click', clearConfig);
+  const nameEl = $('#wmConfigName');
+  nameEl.addEventListener('input', updateConfigButtons);   // 按钮在「保存/覆盖保存」之间切换
+  // 一个按钮两种用法：选着某套配置且没输新名字 = 覆盖它，否则按输入的名字新建
+  const saveCurrent = () => saveConfigSlot(!!selectedConfigSlotId() && !nameEl.value.trim());
+  $('#wmConfigSaveAs').addEventListener('click', saveCurrent);
+  nameEl.addEventListener('keydown', ev => {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    saveCurrent();
+  });
+  const file = $('#wmConfigFile');
+  file.addEventListener('change', () => {
+    const picked = file.files && file.files[0];
+    file.value = '';            // 清空后同一个文件也能再次导入
+    importConfigFile(picked);
+  });
+}
+
+// 打开页面就把「上次那套参数」读回来；还没有底图时先放着，上传图片后 applyConfig 还原。
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    wmConfig = data.exists ? data.config : null;
+    wmConfigSlots = Array.isArray(data.slots) ? data.slots : [];
+    wmConfigStamp = Number(data.saved_at || 0);
+    const notes = reportConfigNotes(data, 0);
+    console.log('[wm] config', data.exists ? 'restored' : 'empty', wmConfig, notes);
+    // 用户手速快（配置还在路上就传完图）时面板已经画好了 ⇒ 这里补一次清单
+    if ($('#wmConfigSlot')) renderConfigUI();
+    return data;
+  } catch (e) {
+    console.warn('[cfg] 读取配置失败', e);
+    return null;
+  }
+}
+
+// Tabs
+$$('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.tab-btn').forEach(b => b.classList.remove('active'));
+    $$('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $(`#tab-${btn.dataset.tab}`).classList.add('active');
+  });
+});
+
+// Upload
+const uploadZone = $('#uploadZone');
+const fileInput = $('#fileInput');
+const wmFileInput = $('#wmFileInput');
+
+uploadZone.addEventListener('click', () => { if (!uploadZone.classList.contains('has-image')) fileInput.click(); });
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
+
+// Re-upload / reset
+$('#reuploadBtn').addEventListener('click', resetProject);
+
+async function resetProject() {
+  try {
+    await fetch('/api/reset', { method: 'POST' });
+  } catch (e) {
+    showToast('清除失败: ' + e.message, 'error');
+  }
+  currentImage = null;
+  imageInfo = null;
+  exifData = {};
+  wmItems = [];
+  selectedWmKey = null;
+  watermarkType = 'text';
+  activePreset = null;
+  wmExport = { format: 'jpeg', quality: 95 };
+  hideWmLayer();
+  uploadZone.classList.remove('has-image');
+  $('#previewImage').src = '';
+  $('#uploadPlaceholder').style.display = '';
+  $('#previewContainer').style.display = 'none';
+  $('#infoBar').style.display = 'none';
+  $('#exifContent').innerHTML = '<div class="empty-state"><p>上传图片后查看 EXIF 信息</p></div>';
+  $('#watermarkContent').innerHTML = '<div class="empty-state"><p>上传图片后编辑水印</p></div>';
+  fileInput.value = '';
+  wmFileInput.value = '';
+  showToast('已清除，可重新导入', 'success');
+}
+
+// Watermark image upload（支持一次导入多张）
+wmFileInput.addEventListener('change', () => {
+  if (wmFileInput.files.length) handleWmImageFiles(wmFileInput.files);
+});
+
+async function handleWmImageFiles(files) {
+  const list = Array.from(files || []);
+  if (!list.length) return;
+
+  let ok = 0;
+  for (const file of list) {
+    if (!file.type.startsWith('image/')) { showToast(`「${file.name}」不是图片文件`, 'error'); continue; }
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await fetch('/api/watermark/upload', { method: 'POST', body: form });
+      let data = {};
+      try { data = await res.json(); } catch (e) { /* 非 JSON 响应 */ }
+      if (!res.ok || data.error) { showToast(data.error || `导入失败 (HTTP ${res.status})`, 'error'); continue; }
+      addWmItem(data);
+      ok++;
+    } catch (e) {
+      showToast('上传失败: ' + e.message, 'error');
+    }
+  }
+  wmFileInput.value = '';
+  if (!ok) return;
+
+  watermarkType = 'image';
+  renderWatermark();
+  scheduleConfigSave();   // 新增的水印 id 也要进配置（下次刷新才知道有几张、摆在哪）
+  showToast(ok > 1 ? `已导入 ${ok} 张水印，直接在预览图上拖动摆放` : '水印已导入，直接在预览图上拖动摆放', 'success');
+}
+
+function addWmItem(data) {
+  const item = {
+    key: 'wmk' + (++wmSeq),
+    id: data.id,
+    src: data.preview,
+    natW: data.width || 1,
+    natH: data.height || 1,
+    x: 0.5,
+    y: 0.5,
+    scale: 0.3,
+    rotation: 0,
+    opacity: 128,
+  };
+  // 多张时错开摆放，避免叠在一起看不清
+  const n = wmItems.length;
+  if (n) {
+    item.x = 0.28 + 0.18 * (n % 3);
+    item.y = 0.3 + 0.18 * (Math.floor(n / 3) % 2);
+  }
+  wmItems.push(item);
+  selectedWmKey = item.key;
+  return item;
+}
+
+// 刷新页面后恢复 uploads/ 里已有的水印文件（前端状态会丢，文件不会）
+async function restoreWmItems() {
+  if (wmItems.length) return;
+  try {
+    const res = await fetch('/api/watermark/list');
+    const data = await res.json();
+    (data.items || []).forEach(it => addWmItem(it));
+  } catch (e) {
+    /* 恢复失败不影响主流程 */
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 品牌贴图：上传/删除走独立接口（/api/brand/*），存 brands/ 且跨会话保留。
+// 刻意不复用图片水印接口 —— 那样贴图会同时出现在「图片水印」列表里被拖到照片上，
+// 还会把 waterMarkType 顶成 image（正在套的信息栏模板会被弹出去）。
+// ---------------------------------------------------------------------------
+let brandFileInput = null;
+
+function pickBrandImage(key) {
+  if (!brandFileInput) {
+    brandFileInput = document.createElement('input');
+    brandFileInput.type = 'file';
+    brandFileInput.accept = 'image/png,image/jpeg,image/webp,image/*';
+    brandFileInput.style.display = 'none';
+    document.body.appendChild(brandFileInput);
+  }
+  brandFileInput.value = '';
+  brandFileInput.onchange = () => {
+    const f = brandFileInput.files && brandFileInput.files[0];
+    if (f) uploadBrandImage(f, key);
+  };
+  brandFileInput.click();
+}
+
+async function uploadBrandImage(file, key) {
+  if (!file.type.startsWith('image/')) { showToast('请选择图片文件（推荐透明底 PNG）', 'error'); return; }
+  showToast('正在导入贴图...', '');
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const res = await fetch('/api/brand/upload', { method: 'POST', body: form });
+    let data = {};
+    try { data = await res.json(); } catch (e) { /* 非 JSON 响应 */ }
+    if (!res.ok || data.error) { showToast(data.error || `导入失败 (HTTP ${res.status})`, 'error'); return; }
+    await loadBrands();
+    if (activePreset && key) {
+      activePreset.params[key] = data.id;     // 传完直接给这个槽位套上并预览
+      saveBrandChoice(key, data.id);
+    }
+    renderPresetUI();
+    showToast(`贴图已导入：${data.name || data.id}`, 'success');
+    if (currentImage) previewWatermark();
+  } catch (e) {
+    showToast('导入失败: ' + e.message, 'error');
+  }
+}
+
+async function removeBrand(id) {
+  if (!id) return;
+  if (!window.confirm('删除这张品牌贴图？引用它的模板会自动回落到文字。')) return;
+  try {
+    const res = await fetch('/api/brand/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+  } catch (e) {
+    showToast('删除失败: ' + e.message, 'error');
+    return;
+  }
+  await loadBrands();
+  if (activePreset) {
+    Object.keys(activePreset.params).forEach(k => {
+      if (activePreset.params[k] === id) { activePreset.params[k] = ''; saveBrandChoice(k, ''); }
+    });
+  }
+  renderPresetUI();
+  showToast('贴图已删除', '');
+  if (currentImage) previewWatermark();
+}
+
+async function handleFile(file) {
+  if (!file.type.startsWith('image/')) { showToast('请选择图片文件', 'error'); return; }
+  if (file.size > 100 * 1024 * 1024) { showToast('图片超过 100MB 上限，请压缩后再试', 'error'); return; }
+  showToast('正在处理...', '');
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+
+    currentImage = data.preview;
+    imageInfo = data.image_info || null;
+    exifData = data.exif_data;
+
+    // Update preview
+    $('#previewImage').src = data.preview;
+    $('#uploadPlaceholder').style.display = 'none';
+    $('#previewContainer').style.display = 'flex';
+    uploadZone.classList.add('has-image');
+
+    // Info bar
+    $('#infoBar').style.display = 'flex';
+    $('#infoSize').textContent = `${data.image_info.width} × ${data.image_info.height}`;
+    $('#infoFormat').textContent = data.image_info.format;
+    $('#infoMode').textContent = data.image_info.mode;
+
+    renderExif(data.exif_data);
+    await restoreWmItems();
+    renderWatermark();
+    // 恢复上次自动保存的参数（含图片水印的位置）；配置可能还在路上（用户手速快）
+    await wmConfigReady;
+    if (wmConfig) applyConfig(wmConfig);
+    else if (activePreset) previewWatermark();
+    if (!showExifRecoveryNotice(data.exif_recovered, data.exif_warnings)) {
+      showToast('图片加载成功', 'success');
+    }
+  } catch (e) {
+    showToast('上传失败: ' + e.message, 'error');
+  }
+}
+
+// 上传后回显后端在 EXIF 里发现的问题：从缩略图 IFD 补回的相机信息 + 结构告警。
+// 有内容时返回 true（调用方就不再弹「图片加载成功」，避免两条提示互相覆盖）。
+function showExifRecoveryNotice(recovered, warnings) {
+  const label = { make: '制造商', model: '型号', software: '软件', datetime: '日期时间', artist: '作者', copyright: '版权' };
+  const parts = Object.entries(recovered || {})
+    .filter(([, v]) => v)
+    .map(([k, v]) => `${label[k] || k} ${v}`);
+  const msgs = [];
+  if (parts.length) msgs.push('已从缩略图 IFD 找回：' + parts.join(' · '));
+  (warnings || []).forEach(w => msgs.push(w));
+  if (!msgs.length) return false;
+  console.debug('[exif] recovered', recovered, 'warnings', warnings);
+  showToast(msgs.join(' ｜ '), parts.length ? 'success' : '');
+  return true;
+}
+
+// EXIF rendering
+function renderExif(data) {
+  const container = $('#exifContent');
+  const entries = Object.entries(data);
+
+  const basicTags = ['相机制造商', '相机型号', '软件', '日期时间', '作者', '版权', '拍摄时间', '数字化时间', '时区偏移', '拍摄时区'];
+  const cameraTags = ['曝光时间', '光圈值', 'ISO感光度', '焦距', '35mm等效焦距', '曝光补偿', '曝光模式', '测光模式', '闪光灯', '白平衡', '曝光程序', '光源', '快门速度值', '光圈值(APEX)', '数码变焦', '色彩空间'];
+  const lensTags = ['镜头制造商', '镜头型号', '镜头规格', '镜头序列号'];
+  const otherTags = ['方向', 'X分辨率', 'Y分辨率', '分辨率单位', '图像宽度', '图像高度'];
+
+  // 核心身份字段：EXIF 里没有也要渲染成空输入框。
+  // 上游平台做「去拍摄信息」会删掉这些标签，之前前端按「存在才渲染」直接不画行，
+  // 用户既看不到、也没地方补录 —— 现在留空框 + 「缺失」徽章，非空即随「保存修改」写入新增标签。
+  const coreTags = ['相机制造商', '相机型号', '软件', '日期时间', '拍摄时间', '数字化时间'];
+
+  // 二进制块（MakerNote / PrintIM 等）不给 data-tag：不参与保存，避免写坏原始数据
+  function renderRow(name, info) {
+    if (!info) {
+      return `<div class="exif-row">
+        <label title="${name}">${name}</label>
+        <div class="exif-field">
+          <input type="text" class="missing" data-tag="${name}" data-raw="" placeholder="EXIF 中缺失，可直接填写">
+          <span class="field-badge missing" title="这张图的 EXIF 里没有这个标签，可以手填后用「保存修改」写入">缺失</span>
+        </div>
+      </div>`;
+    }
+    if (info.binary) {
+      return `<div class="exif-row">
+        <label title="${name}">${name}</label>
+        <input type="text" class="binary" value="${escapeHtml(info.formatted)}" readonly title="二进制数据，不支持编辑">
+      </div>`;
+    }
+    // source=ifd1：主 IFD0 里被删了，值取自同一文件的缩略图 IFD，保存后写进主 IFD0
+    const badge = info.source === 'ifd1'
+      ? '<span class="field-badge src" title="主 IFD0 里该标签已被删除，此值取自同一文件的缩略图 IFD(IFD1)；点「保存修改」会写进主 IFD0">缩略图</span>'
+      : '';
+    return `<div class="exif-row">
+      <label title="${name}">${name}</label>
+      <div class="exif-field">
+        <input type="text" value="${escapeHtml(info.formatted)}" data-tag="${name}" data-raw="${escapeHtml(info.raw)}">
+        ${badge}
+      </div>
+    </div>`;
+  }
+
+  function renderSection(title, tags) {
+    // 按标签清单的固定顺序渲染（顺序稳定），核心字段即便 EXIF 里没有也照样出一行
+    const rows = tags
+      .map(name => [name, data[name]])
+      .filter(([name, info]) => info || coreTags.includes(name));
+    if (rows.length === 0) return '';
+    let html = `<div class="exif-section"><h3>${title}</h3>`;
+    rows.forEach(([name, info]) => { html += renderRow(name, info); });
+    html += '</div>';
+    return html;
+  }
+
+  let html = '';
+  if (entries.length === 0) {
+    // 完全没有 EXIF 也照样给出核心身份字段（用户手填即可），而不是只显示一句「没有 EXIF」
+    html += '<div class="empty-state"><p>该图片没有 EXIF 信息（可在下方直接填写相机信息，保存后写入）</p></div>';
+  }
+  html += renderSection('基础信息', basicTags);
+  html += renderSection('拍摄参数', cameraTags);
+  html += renderSection('镜头信息', lensTags);
+
+  const remaining = entries.filter(([name]) => !basicTags.includes(name) && !cameraTags.includes(name) && !lensTags.includes(name) && !otherTags.includes(name));
+  if (remaining.length > 0) {
+    html += '<div class="exif-section"><h3>其他参数</h3>';
+    remaining.forEach(([name, info]) => { html += renderRow(name, info); });
+    html += '</div>';
+  }
+
+  html += '<div class="exif-actions"><button class="btn btn-primary" onclick="saveExif()">保存修改</button><button class="btn btn-secondary" onclick="resetExif()">重置</button></div>';
+  container.innerHTML = html;
+}
+
+async function saveExif() {
+  const edits = {};
+  $$('#exifContent input[data-tag]').forEach(input => {
+    const original = input.dataset.raw;
+    const current = input.value;
+    if (current !== original && current.trim()) {
+      edits[input.dataset.tag] = current;
+    }
+  });
+
+  if (Object.keys(edits).length === 0) { showToast('没有修改任何参数', ''); return; }
+
+  try {
+    const res = await fetch('/api/exif/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ edits })
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+    exifData = data.exif_data;
+    renderExif(data.exif_data);
+    showToast('EXIF 参数已更新', 'success');
+  } catch (e) {
+    showToast('保存失败: ' + e.message, 'error');
+  }
+}
+
+function resetExif() {
+  renderExif(exifData);
+  showToast('已重置为原始数据', '');
+}
+
+// ---------------------------------------------------------------------------
+// 模板 UI：控件全部按后端下发的 controls 描述生成（加模板/改数值不用动前端）
+// ---------------------------------------------------------------------------
+const presetScale = c => Number(c.scale || 1);
+const presetChoiceLabel = v => PRESET_CHOICE_LABELS[v] || v;
+
+function presetParamValue(key) {
+  return activePreset ? activePreset.params[key] : undefined;
+}
+
+// ---------------------------------------------------------------------------
+// 可选颜色（*_image_color）：**空值 = 跟随同槽位的文字颜色**
+// 取值链：本键参数 → 同槽 {段}_color（信息栏四段 / 画框四行都是这个键名）→ 控件默认值
+// ⇒ 老配置（没有这个键）读回来和以前逐像素一样，只有用户真的点了色盘才是「固定色」。
+// ---------------------------------------------------------------------------
+function optionalColorSeg(key) {
+  return String(key || '').replace(/_image_color$/, '');
+}
+
+function optionalColorEffective(key, value) {
+  const raw = (value === undefined) ? presetParamValue(key) : value;
+  if (raw) return String(raw);
+  const follow = presetParamValue(`${optionalColorSeg(key)}_color`);
+  return follow ? String(follow) : '';
+}
+
+function optionalColorRefLabel(c) {
+  return (c && (c.empty_label || c.label)) || '文字';
+}
+
+function presetActiveFor(type) {
+  return !!activePreset && (PRESET_KIND_TO_TYPE[activePreset.kind] || '') === type;
+}
+
+function renderPresetUI() {
+  const chips = $('#wmPresetChips');
+  const box = $('#wmPresetControls');
+  if (!chips || !box) return;
+
+  chips.innerHTML = [
+    `<div class="wm-preset-chip ${activePreset ? '' : 'active'}" data-preset="" title="不使用模板，沿用默认排版">默认样式</div>`,
+    ...wmPresets.map(p => `<div class="wm-preset-chip ${activePreset && activePreset.id === p.id ? 'active' : ''}" data-preset="${escapeHtml(p.id)}" title="${escapeHtml(p.description || '')}">${escapeHtml(p.name)}</div>`),
+  ].join('');
+  chips.querySelectorAll('.wm-preset-chip').forEach(el => {
+    el.addEventListener('click', () => applyPreset(el.dataset.preset));
+  });
+
+  box.innerHTML = activePreset ? presetControlsHtml(activePreset) : '';
+  bindPresetControls();
+}
+
+function presetControlsHtml(preset) {
+  const groups = new Map();
+  (preset.controls || []).forEach(c => {
+    const g = c.group || '参数';
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(c);
+  });
+  let html = '';
+  for (const [name, list] of groups) {
+    html += `<div class="wm-preset-group"><div class="wm-preset-group-title">${escapeHtml(name)}</div>`;
+    html += list.map(controlHtml).join('');
+    html += '</div>';
+  }
+  return html;
+}
+
+function controlHtml(c) {
+  const id = `wmp_${c.key}`;
+  const hint = c.hint ? `<span class="wm-hint-inline">${escapeHtml(c.hint)}</span>` : '';
+  // 初值优先取工作副本；模板 params 里没写这个键时退回后端下发的 value
+  // （＝spec 默认值）——否则 float 会显示量程下限、bool 会显示未勾选
+  const raw = presetParamValue(c.key) ?? c.value;
+  if (c.type === 'choice') {
+    return `<div class="wm-group"><label>${escapeHtml(c.label)}</label>
+      <select id="${id}" data-key="${c.key}">${(c.choices || []).map(ch =>
+        `<option value="${escapeHtml(ch)}" ${ch === raw ? 'selected' : ''}>${escapeHtml(presetChoiceLabel(ch))}</option>`).join('')}</select></div>`;
+  }
+  if (c.type === 'color') {
+    // 可选颜色（c.optional，目前只有 *_image_color）：**空值 = 跟随同槽位文字颜色**。
+    // 空串没法用 <input type=color> 表达（它会显示成 #000000，一碰就写值），所以这里补
+    // 一行状态 + 一个「跟随文字颜色」按钮；按钮**不带 data-key** —— 同贴图/字体按钮的
+    // 规矩，否则会被通用绑定当模板参数写进 payload。
+    if (c.optional) {
+      const cur = String(raw || '');
+      const eff = optionalColorEffective(c.key, cur) || '#000000';
+      const state = cur
+        ? `<span class="wm-brand-meta">固定 ${escapeHtml(cur)}</span>`
+        : `<span class="wm-brand-meta">跟随「${escapeHtml(optionalColorRefLabel(c))}」${escapeHtml(eff)}</span>`;
+      return `<div class="wm-group"><label>${escapeHtml(c.label)}${hint}</label>
+      <div class="wm-color-row"><input type="color" id="${id}" data-key="${c.key}" value="${escapeHtml(eff)}"></div>
+      <div class="wm-brand-state">${state}
+        <button type="button" class="wm-mini-btn" data-role="color-follow" data-color-key="${c.key}">跟随文字颜色</button>
+      </div></div>`;
+    }
+    return `<div class="wm-group"><label>${escapeHtml(c.label)}${hint}</label>
+      <div class="wm-color-row"><input type="color" id="${id}" data-key="${c.key}" value="${escapeHtml(String(raw || '#ffffff'))}"></div></div>`;
+  }
+  if (c.type === 'bool') {
+    return `<div class="wm-group"><label class="wm-checkbox"><input type="checkbox" id="${id}" data-key="${c.key}" ${raw ? 'checked' : ''}> ${escapeHtml(c.label)}</label></div>`;
+  }
+  if (c.type === 'text') {
+    return `<div class="wm-group"><label>${escapeHtml(c.label)}${hint}</label>
+      <input type="text" id="${id}" data-key="${c.key}" value="${escapeHtml(String(raw || ''))}"></div>`;
+  }
+  if (c.type === 'image_ref') {
+    // 品牌贴图槽位：状态行（当前贴图 + 上传/用文字/删除）+ 库缩略图条（点一下就套用到本槽位）。
+    // 传的是贴图 id，后端还会按 ^[0-9a-zA-Z]{1,32}$ 再校验一次。
+    const cur = String(raw || '');
+    const found = wmBrands.find(b => b.id === cur);
+    const tip = brandNeedHint(c.key);
+    const strip = wmBrands.map(b => {
+      const on = b.id === cur ? ' active' : '';
+      const title = `${b.name}（${b.width}×${b.height}）${b.id === cur ? ' · 点击取消（改用文字）' : ' · 点击套用到此处'}`;
+      return `<button type="button" class="wm-brand-pick${on}" data-role="brand-pick" data-brand-key="${c.key}" data-brand-id="${escapeHtml(b.id)}" title="${escapeHtml(title)}">`
+        + `<img src="${b.preview}" alt="${escapeHtml(b.name)}"></button>`;
+    }).join('');
+    // 引用的贴图不在库里（被删掉 / 换了机器）：留一个占位格，点「用文字」即可清掉
+    const ghost = (cur && !found)
+      ? `<button type="button" class="wm-brand-pick active" data-role="brand-pick" data-brand-key="${c.key}" data-brand-id="${escapeHtml(cur)}" title="${escapeHtml(cur)}（不在贴图库里，点击清除）">?</button>`
+      : '';
+    const state = found
+      ? `<img class="wm-brand-thumb" src="${found.preview}" alt="">`
+        + `<span class="wm-brand-meta">${escapeHtml(found.name)} · ${found.width}×${found.height}`
+        + `${found.source ? ' · 来自 brands/ 目录' : ''}${escapeHtml(tip)}</span>`
+      : `<span class="wm-brand-empty">未使用贴图（该段照旧用文字）</span><span class="wm-brand-meta"></span>`;
+    const empty = wmBrands.length ? ''
+      : '<div class="wm-brand-empty">还没有贴图：点「+」或「上传贴图」导入透明底 PNG。</div>';
+    // 照片 logo 多一个「在图上拖动」入口：位置/大小直接在预览图上拖（0 请求，松手才合成）
+    const dragBtn = c.key === 'photo_logo'
+      ? `<button type="button" class="wm-mini-btn" data-role="logo-drag" id="wmpPhotoLogoDrag" title="在预览图上拖动摆放（拖右下角圆点改大小）">${logoDragging ? '完成拖动' : '在图上拖动'}</button>`
+      : '';
+    const dragHint = c.key === 'photo_logo'
+      ? '<div class="wm-hint-inline">点「在图上拖动」可直接在预览图上拖摆；右下角圆点改大小、× 移除。位置是「照片内」的相对坐标，换尺寸或加画框都不会跑位。</div>'
+      : '';
+    return `<div class="wm-group"><label>${escapeHtml(c.label)}${hint}</label>
+      <div class="wm-brand-state">
+        ${state}
+        <button type="button" class="wm-mini-btn" data-role="brand-upload" data-brand-key="${c.key}">上传贴图</button>
+        <button type="button" class="wm-mini-btn" data-role="brand-clear" data-brand-key="${c.key}">用文字</button>
+        ${found ? `<button type="button" class="wm-mini-btn danger" data-role="brand-delete" data-brand-id="${escapeHtml(cur)}">删除</button>` : ''}
+        ${dragBtn}
+      </div>
+      <div class="wm-brand-strip">${strip}${ghost}
+        <button type="button" class="wm-brand-add" data-role="brand-upload" data-brand-key="${c.key}" title="上传新贴图（透明底 PNG）">+</button>
+      </div>
+      ${empty}
+      ${dragHint}
+    </div>`;
+  }
+  if (c.type === 'font_ref') {
+    // 字体槽位：下拉（系统字体按后端过滤后下发 + 我上传的）+ 上传/删除。
+    // 值是字体 id（后端同样按 ^[0-9a-zA-Z]{1,32}$ 再校验一次），空串 = 自动挑体。
+    return `<div class="wm-group"><label>${escapeHtml(c.label)}${hint}</label>
+      <div class="wm-font-row">
+        <select id="${id}" data-key="${c.key}">${fontOptionsHtml(c, String(raw || ''))}</select>
+        <button type="button" class="wm-mini-btn" data-role="font-upload">上传字体</button>
+        ${isUploadedFont(c, String(raw || '')) ? `<button type="button" class="wm-mini-btn danger" data-role="font-delete" data-font-id="${escapeHtml(String(raw || ''))}">删除</button>` : ''}
+      </div>
+      <span class="wm-hint-inline">${escapeHtml(fontStateText(c, String(raw || '')))}</span>
+    </div>`;
+  }
+  if (c.type !== 'float' && c.type !== 'int') {
+    // 未知控件类型：宁可什么都不画，也不渲染 min="NaN" 的坏滑块（老页面遇到新模板的典型症状）
+    console.warn('[wm] 未知控件类型，已跳过:', c.type, c.key);
+    return '';
+  }
+  // float / int → 滑块 + 数字框：显示值 = 真实值 × scale，单位文字也来自模板描述。
+  // 两个控件共用同一套数值口径（range 是唯一真值来源，见 bindRangeNumber）：
+  // 显示的是 %/‰ 这类人话单位，所以手输「10」= 10%，不是比例值 0.1。
+  //
+  // step 由后端按**显示小数位**下发（float=0.01，int=1）：range 的 value 会被浏览器
+  // 吸附到 step 网格上，网格比显示精度粗就会出现「输什么都跳到特定数」——
+  // 所以这里只允许「十进制整数格」，绝不用 (max-min)/N 这种算出来的怪step。
+  const sc = presetScale(c);
+  const min = roundTo(finiteNum(Number(c.min) * sc, 0), 6);
+  const max = roundTo(finiteNum(Number(c.max) * sc, Math.max(min, 1)), 6);
+  const step = c.type === 'int' ? 1 : finiteNum(c.step, finiteNum(Math.max(0.01, (max - min) / 200), 0.01));
+  const shown = Math.min(max, Math.max(min, finiteNum(Number(raw) * sc, min)));
+  const dec = c.type === 'int' ? 0 : numDecimals(step);
+  const unit = c.unit || '';
+  const numTitle = `可直接输入数字：${min}~${max}${unit}，回车或失焦生效`;
+  return `<div class="wm-group"><label>${escapeHtml(c.label)}${hint}</label>
+    <div class="wm-slider-row">
+      <input type="range" id="${id}" data-key="${c.key}" min="${min}" max="${max}" step="${step}" value="${shown}">
+      <input type="number" class="wm-num" id="${id}Num" data-num-for="${c.key}" min="${min}" max="${max}" step="${step}"
+        inputmode="decimal" value="${roundTo(shown, dec)}" title="${escapeHtml(numTitle)}"
+        aria-label="${escapeHtml(c.label)}（可直接输入）">
+      ${unit ? `<span class="wm-unit">${escapeHtml(unit)}</span>` : ''}
+    </div></div>`;
+}
+
+// 数值兜底：非有限值一律换成 fallback —— 页面上绝不出现 min="NaN" / value="NaN"
+function finiteNum(v, fallback) {
+  const n = Number(v);
+  return isFinite(n) ? n : fallback;
+}
+
+// 显示小数位：从滑块的 step 推（step=0.24 → 2 位；整数控件 step=1 → 0 位）
+function numDecimals(step) {
+  const s = String(step == null ? '' : step);
+  const dot = s.indexOf('.');
+  return dot < 0 ? 0 : Math.min(3, s.length - dot - 1);
+}
+
+function roundTo(v, decimals) {
+  return Number(finiteNum(v, 0).toFixed(finiteNum(decimals, 0)));
+}
+
+// 滑块 + 数字输入框 双向绑定 —— range 始终是唯一真值来源：
+//   拖滑块    ⇒ 数字框跟着走（业务侧的 input 监听读的就是 range.value，这里只负责显示同步）
+//   数字框手输 ⇒ 合法（在范围内）就写回 range 并即时生效；越界/非法先不动，
+//               否则刚敲第一个字符就被夹紧、输入框会跟用户抢（经典坑）
+//   失焦或回车（原生 change）⇒ 夹紧到 [min,max] + 按小数位归一显示；非法内容回到 range 当前值
+// toDisplay / toRange：滑块值与人话单位不一致时才需要（透明度是 10~255 ↔ 4%~100%）
+// commitOnRange：range 自带业务监听时为 false，避免同一次拖动触发两次提交
+function bindRangeNumber(opts) {
+  const range = opts.range;
+  const num = opts.num;
+  if (!range || !num) return;
+  const toDisplay = opts.toDisplay || (v => v);
+  const toRange = opts.toRange || (v => v);
+  const decimals = opts.decimals == null ? numDecimals(range.step) : opts.decimals;
+  const commit = opts.onCommit || (() => {});
+  const lo = toDisplay(finiteNum(range.min, 0));
+  const hi = toDisplay(finiteNum(range.max, 0));
+  const showNum = () => { num.value = String(roundTo(toDisplay(finiteNum(range.value, 0)), decimals)); };
+  const apply = v => { range.value = String(toRange(v)); commit(); };
+  range.addEventListener('input', () => {
+    showNum();
+    if (opts.commitOnRange !== false) commit();
+  });
+  num.addEventListener('input', () => {
+    const v = parseFloat(num.value);          // parseFloat 能吃下 "13.68%" 这种带单位的粘贴
+    if (!isFinite(v)) return;                 // 空串 / 只有负号 → 等失焦再兜底
+    if (v < Math.min(lo, hi) || v > Math.max(lo, hi)) return;
+    apply(v);
+  });
+  num.addEventListener('change', () => {
+    const v = parseFloat(num.value);
+    if (isFinite(v)) apply(Math.min(Math.max(v, Math.min(lo, hi)), Math.max(lo, hi)));
+    showNum();
+  });
+  showNum();
+}
+
+// 品牌贴图「建议 ≥N px 高」提示：信息栏引擎把贴图缩放到
+// 墨迹高 = {段}_cap_ratio × font_scale × 画布宽，这里用**原图宽**反推出成片的目标像素高。
+// 拿不到原图尺寸 / 模板没定义该段 cap_ratio 就不提示（纯提示，不影响渲染）。
+function brandNeedHint(key) {
+  const params = (activePreset && activePreset.params) || {};
+  const w = (imageInfo && Number(imageInfo.width)) || 0;
+  if (key === 'photo_logo') {
+    // 照片 logo 按**照片宽**定尺寸（不是墨迹高），所以提示换成「建议 ≥N px 宽」
+    const sc = Number(params.photo_logo_scale || 0);
+    return (sc && w) ? ` · 建议 ≥${Math.round(sc * w)}px 宽` : '';
+  }
+  const seg = String(key || '').replace(/_image$/, '');
+  const cap = Number(params[`${seg}_cap_ratio`] || 0);
+  const scale = Number(params.font_scale || 1) || 1;
+  if (!cap || !w) return '';
+  return ` · 建议 ≥${Math.round(cap * scale * w)}px 高`;
+}
+
+function inputToParam(c, el) {
+  if (c.type === 'bool') return el.checked;
+  if (c.type === 'color' || c.type === 'text' || c.type === 'choice'
+    || c.type === 'image_ref' || c.type === 'font_ref') return el.value;
+  return Number(el.value) / presetScale(c);
+}
+
+function bindPresetControls() {
+  const box = $('#wmPresetControls');
+  if (!box || !activePreset) return;
+  const byKey = {};
+  (activePreset.controls || []).forEach(c => { byKey[c.key] = c; });
+  box.querySelectorAll('[data-key]').forEach(el => {
+    const c = byKey[el.dataset.key];
+    if (!c) return;
+    el.addEventListener(el.type === 'range' || el.type === 'color' ? 'input' : 'change', () => {
+      activePreset.params[el.dataset.key] = inputToParam(c, el);
+      debouncedPreview();
+    });
+  });
+  // 数字手输框：与上面的滑块成对（range 始终是真值来源，这里只负责把数字写回 range）
+  box.querySelectorAll('[data-num-for]').forEach(num => {
+    const c = byKey[num.dataset.numFor];
+    const range = c ? $(`#wmp_${c.key}`) : null;
+    if (!c || !range) return;
+    bindRangeNumber({
+      range, num, commitOnRange: false,   // range 自己的 input 监听（上面那段）已经在提交了
+      onCommit: () => { activePreset.params[c.key] = inputToParam(c, range); debouncedPreview(); },
+    });
+  });
+  // 品牌贴图槽位：缩略图条（点击套用/取消）、上传、删除、改用文字。
+  // 这些按钮一律不带 data-key —— 否则会被上面的通用逻辑当成控件丢进 inputToParam。
+  box.querySelectorAll('[data-role="brand-pick"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.brandKey;
+      const id = btn.dataset.brandId;
+      // 点同一张 = 取消（回落到文字），点别的 = 换这张
+      const next = String(activePreset.params[key] || '') === id ? '' : id;
+      activePreset.params[key] = next;
+      saveBrandChoice(key, next);
+      renderPresetUI();
+      if (currentImage) previewWatermark();
+    });
+  });
+  box.querySelectorAll('[data-role="brand-clear"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.brandKey;
+      activePreset.params[key] = '';
+      saveBrandChoice(key, '');
+      renderPresetUI();
+      if (currentImage) previewWatermark();
+    });
+  });
+  box.querySelectorAll('[data-role="brand-upload"]').forEach(btn => {
+    btn.addEventListener('click', () => pickBrandImage(btn.dataset.brandKey));
+  });
+  box.querySelectorAll('[data-role="brand-delete"]').forEach(btn => {
+    btn.addEventListener('click', () => removeBrand(btn.dataset.brandId));
+  });
+  // 字体槽位：上传（套到本行那个下拉上）/ 删除某个我上传的字体。
+  // 同样不带 data-key，免得被上面的通用控件逻辑丢进 inputToParam。
+  box.querySelectorAll('[data-role="font-upload"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.wm-group');
+      const sel = row ? row.querySelector('select[data-key]') : null;
+      pickFontFile(sel ? sel.dataset.key : '');
+    });
+  });
+  box.querySelectorAll('[data-role="font-delete"]').forEach(btn => {
+    btn.addEventListener('click', () => removeFontFile(btn.dataset.fontId));
+  });
+  // 照片 logo 的「在图上拖动」：切换拖动模式（同样不带 data-key）
+  box.querySelectorAll('[data-role="logo-drag"]').forEach(btn => {
+    btn.addEventListener('click', () => toggleLogoDrag());
+  });
+  // 可选颜色（*_image_color）的「跟随文字颜色」：写回空串 = 交给该槽文字颜色。
+  // 自动保存不用单独挂 —— previewWatermark() 那条链里已经有 scheduleConfigSave()。
+  box.querySelectorAll('[data-role="color-follow"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activePreset.params[btn.dataset.colorKey] = '';
+      renderPresetUI();
+      if (currentImage) previewWatermark(); else scheduleConfigSave();
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 照片 logo 的拖动模式：与图片水印同一套「DOM 代理层」思路 —— 拖动/缩放只改
+// activePreset.params（0 请求、即时反馈），松手才让后端做权威合成。
+// 落点用「照片盒」归一化坐标（0,0 = 照片左上），照片盒来自预览回显的
+// applied.frame.photo_box ⇒ 改留白宽度之后拖动依然对得上。
+// ---------------------------------------------------------------------------
+let logoDragging = false;   // 是否处于「在图上拖动」模式
+let lastApplied = null;     // 上次预览的 applied（frame.canvas / frame.photo_box / frame.photo_logo）
+
+function logoParams() { return (activePreset && activePreset.params) || null; }
+function logoBrandId() { const p = logoParams(); return p ? String(p.photo_logo || '') : ''; }
+function logoLayerEl() { return $('#wmLogoLayer'); }
+function logoCanShow() {
+  // 照片 logo 只属于「照片上有留白/背景」的那两类水印（画框 / 背景模糊）：
+  // 信息栏的贴图在图片下方那条栏里，不用拖。
+  const isFramed = watermarkType === 'frame' || watermarkType === 'blur';
+  return isFramed && presetActiveFor(watermarkType) && !!logoBrandId()
+    && !!wmBrands.find(b => b.id === logoBrandId());
+}
+
+function hideLogoLayer() {
+  const layer = logoLayerEl();
+  if (!layer) return;
+  layer.classList.remove('active');
+  layer.innerHTML = '';
+}
+
+function showLogoLayer() {
+  const layer = logoLayerEl();
+  if (!layer) return;
+  if (!logoCanShow()) { hideLogoLayer(); return; }
+  const brand = wmBrands.find(b => b.id === logoBrandId());
+  const node = document.createElement('div');
+  node.className = 'wm-item selected';
+  node.id = 'wmLogoNode';
+
+  const img = document.createElement('img');
+  img.src = brand.preview;
+  img.alt = '';
+  img.draggable = false;
+  node.appendChild(img);
+
+  const handle = document.createElement('div');
+  handle.className = 'wm-handle';
+  handle.title = '拖动改大小（宽度占照片宽）';
+  node.appendChild(handle);
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'wm-del';
+  del.textContent = '×';
+  del.title = '移除照片 logo';
+  del.addEventListener('click', ev => {
+    ev.stopPropagation();
+    logoParams().photo_logo = '';
+    saveBrandChoice('photo_logo', '');
+    logoDragging = false;
+    hideLogoLayer();
+    renderPresetUI();
+    scheduleConfigSave();
+    if (currentImage) previewWatermark();
+  });
+  node.appendChild(del);
+
+  node.addEventListener('pointerdown', ev => {
+    if (ev.button !== undefined && ev.button !== 0) return;
+    if (ev.target === handle) { startLogoResize(ev); return; }
+    if (ev.target === del || del.contains(ev.target)) return;
+    startLogoDrag(ev);
+  });
+
+  layer.innerHTML = '';
+  layer.appendChild(node);
+  layoutLogoLayer();
+}
+
+// 照片盒在屏幕上的矩形：优先用后端回显的 frame.photo_box / frame.canvas 换算；
+// 还没预览过（没有 applied）就退回「整张预览图 = 照片」
+function logoPhotoRect() {
+  const img = $('#previewImage');
+  const ir = img.getBoundingClientRect();
+  const fr = (lastApplied && lastApplied.frame) || {};
+  const box = fr.photo_box;
+  const canvas = fr.canvas;
+  if (!box || !canvas || !canvas[0] || !canvas[1]) {
+    return { x: ir.left, y: ir.top, w: ir.width, h: ir.height };
+  }
+  const sx = ir.width / canvas[0];
+  const sy = ir.height / canvas[1];
+  return { x: ir.left + box[0] * sx, y: ir.top + box[1] * sy, w: box[2] * sx, h: box[3] * sy };
+}
+
+function layoutLogoLayer() {
+  const layer = logoLayerEl();
+  const box = $('#previewContainer');
+  const img = $('#previewImage');
+  if (!layer || !box || !img || !layer.classList.contains('active')) return;
+  const ir = img.getBoundingClientRect();
+  if (!ir.width || !ir.height) return;
+  const cr = box.getBoundingClientRect();
+  layer.style.left = (ir.left - cr.left - box.clientLeft) + 'px';
+  layer.style.top = (ir.top - cr.top - box.clientTop) + 'px';
+  layer.style.width = ir.width + 'px';
+  layer.style.height = ir.height + 'px';
+  layoutLogoNode();
+}
+
+// 显示尺寸：宽 = 照片宽 × photo_logo_scale；高按**后端实测的墨迹长宽比**推
+// （out 的纵横比与 scale 无关，所以连续拖动缩放时不会变形）
+function logoDisplaySize(pr) {
+  const p = logoParams() || {};
+  const w = pr.w * finiteNum(Number(p.photo_logo_scale), 0.25);
+  const ap = lastApplied && lastApplied.bar && lastApplied.bar.photo_logo;
+  let aspect = 0;
+  if (ap && ap.out && ap.out[0] > 0 && ap.out[1] > 0) aspect = ap.out[1] / ap.out[0];
+  if (!aspect) {
+    const brand = wmBrands.find(b => b.id === logoBrandId());
+    aspect = brand && brand.width ? brand.height / brand.width : 0.25;
+  }
+  return { w: w, h: w * aspect };
+}
+
+function layoutLogoNode() {
+  const node = $('#wmLogoNode');
+  const layer = logoLayerEl();
+  const p = logoParams();
+  if (!node || !layer || !p || !layer.classList.contains('active')) return;
+  const pr = logoPhotoRect();
+  if (!pr.w || !pr.h) return;
+  const lr = layer.getBoundingClientRect();
+  const size = logoDisplaySize(pr);
+  const cx = pr.x + finiteNum(Number(p.photo_logo_x), 0.5) * pr.w;
+  const cy = pr.y + finiteNum(Number(p.photo_logo_y), 0.5) * pr.h;
+  node.style.left = (cx - size.w / 2 - lr.left) + 'px';
+  node.style.top = (cy - size.h / 2 - lr.top) + 'px';
+  node.style.width = size.w + 'px';
+  node.style.height = size.h + 'px';
+  // Pillow 的 rotate 是逆时针、CSS 是顺时针 ⇒ 取反才与后端一致（与图片水印同一条规矩）
+  const rot = finiteNum(Number(p.photo_logo_rotation), 0);
+  node.style.transform = rot ? `rotate(${-rot}deg)` : '';
+}
+
+// 拖动期间只改前端参数；松手才落盘 + 让后端权威合成
+function logoDragWatch(onMove, ev) {
+  const move = e => onMove(e);
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    scheduleConfigSave();
+    if (currentImage) previewWatermark();
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  ev.preventDefault();
+}
+
+function startLogoDrag(ev) {
+  const p = logoParams();
+  if (!p) return;
+  const pr = logoPhotoRect();
+  const start = { x: ev.clientX, y: ev.clientY,
+                  fx: finiteNum(Number(p.photo_logo_x), 0.5), fy: finiteNum(Number(p.photo_logo_y), 0.5) };
+  logoDragWatch(e => {
+    if (!pr.w || !pr.h) return;
+    p.photo_logo_x = roundTo(clamp01(start.fx + (e.clientX - start.x) / pr.w), 4);
+    p.photo_logo_y = roundTo(clamp01(start.fy + (e.clientY - start.y) / pr.h), 4);
+    layoutLogoNode();
+  }, ev);
+}
+
+function startLogoResize(ev) {
+  const p = logoParams();
+  if (!p) return;
+  const pr = logoPhotoRect();
+  const start = { x: ev.clientX, scale: finiteNum(Number(p.photo_logo_scale), 0.25) };
+  logoDragWatch(e => {
+    if (!pr.w) return;
+    // 按**倍数**缩放：从任意起点拖都不会突然跳变
+    const next = start.scale * (1 + (e.clientX - start.x) / Math.max(40, pr.w * start.scale));
+    p.photo_logo_scale = roundTo(Math.min(1, Math.max(0.02, next)), 4);
+    layoutLogoNode();
+  }, ev);
+}
+
+function toggleLogoDrag() {
+  logoDragging = !logoDragging;
+  renderPresetUI();     // 按钮文案在「在图上拖动 / 完成拖动」之间切换
+  if (!logoDragging) {
+    hideLogoLayer();
+    if (currentImage) previewWatermark();
+    return;
+  }
+  if (!logoCanShow()) {
+    showToast('先在「照片 logo」里选一张贴图', 'error');
+    logoDragging = false;
+    renderPresetUI();
+    return;
+  }
+  // 先预览一次拿到权威几何（photo_box），代理层才能和后端严丝合缝
+  if (currentImage) previewWatermark(); else showLogoLayer();
+  showToast('在预览图上拖动摆放；右下角圆点改大小，完成后点「完成拖动」', '');
+}
+
+
+// 用户点模板时会带回「上次选过的品牌贴图」；套用配置时**不带回** —— 配置里的空值
+// 就是用户当初的选择（例如「贴图改回文字」），不该被 localStorage 的记忆值覆盖。
+function setActivePreset(id, params) {
+  activePreset = null;
+  logoDragging = false;      // 换模板/套配置后一律退出「照片 logo 拖动」模式
+  const found = id ? (wmPresets || []).find(p => p.id === id) : null;
+  if (id && !found) showToast(`未知模板：${id}`, 'error');
+  if (!found) return null;
+  // 复制一份参数当工作副本：模板定义保持只读，用户怎么调都不会污染它
+  activePreset = { ...found, params: { ...(found.params || {}), ...(params || {}) } };
+  if (!params) {
+    (found.controls || []).forEach(c => {
+      if (c.type === 'image_ref' && !activePreset.params[c.key]) {
+        activePreset.params[c.key] = rememberedBrand(c.key);
+      }
+    });
+  }
+  const t = PRESET_KIND_TO_TYPE[found.kind];
+  if (t) watermarkType = t;
+  console.log('[wm] apply preset', found.id, activePreset.params);
+  return activePreset;
+}
+
+function applyPreset(id) {
+  setActivePreset(id, null);
+  renderWatermark();
+  if (currentImage) previewWatermark();
+}
+
+function filenameFromResponse(res, fallback) {
+  const cd = res.headers.get('Content-Disposition') || '';
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+  if (star) return decodeURIComponent(star[1]);
+  const plain = /filename="?([^";]+)"?/i.exec(cd);
+  return plain ? plain[1] : fallback;
+}
+
+function bindExportControls() {
+  const sel = $('#wmExportFormat');
+  const q = $('#wmQuality');
+  if (sel) sel.addEventListener('change', () => {
+    wmExport.format = sel.value;
+    updateExportHint();
+    scheduleConfigSave();
+  });
+  if (q) {
+    // 拖滑块 / 手输数字共用一套（数字框就是原来那个只读值）
+    bindRangeNumber({
+      range: q, num: $('#wmQualityNum'), decimals: 0,
+      onCommit: () => { wmExport.quality = Number(q.value); scheduleConfigSave(); },
+    });
+    wmExport.quality = Number(q.value);
+  }
+  updateExportHint();
+}
+
+function updateExportHint() {
+  const hint = $('#wmQualityHint');
+  if (!hint) return;
+  hint.textContent = wmExport.format === 'jpeg' ? '质量仅对 JPEG 生效，PNG 为无损导出'
+    : wmExport.format === 'png' ? 'PNG 无损导出：像素不重编码，质量滑块不影响它'
+      : '跟随上传时的格式；该格式若无法编码会自动回退 JPEG';
+}
+
+// Watermark rendering
+function renderWatermark() {
+  const container = $('#watermarkContent');
+  const isText = watermarkType === 'text';
+  const isImage = watermarkType === 'image';
+  const isExif = watermarkType === 'exif';
+  const isFrame = watermarkType === 'frame';
+  const isBlur = watermarkType === 'blur';
+
+  container.innerHTML = `
+    <div class="wm-card">
+      <div class="wm-card-head">
+        <span class="wm-card-title">模板</span>
+        <span class="wm-hint" style="margin:0">点一下套用，下面的旋钮可继续微调</span>
+      </div>
+      <div class="wm-preset-chips" id="wmPresetChips"></div>
+      <div id="wmPresetControls"></div>
+    </div>
+
+    <div class="wm-card" id="wmConfigCard">
+      <div class="wm-card-head">
+        <span class="wm-card-title">配置</span>
+        <span class="wm-cfg-status" id="wmConfigStatus" style="margin:0">参数会自动保存</span>
+      </div>
+      <div class="wm-group">
+        <label>我的配置</label>
+        <div class="wm-cfg-row">
+          <select id="wmConfigSlot" title="选一套之前存下来的参数"></select>
+          <button class="wm-mini-btn" id="wmConfigApply" title="把选中的那套参数套到当前画面">切换</button>
+          <button class="wm-mini-btn danger" id="wmConfigDelete" title="删除选中的那套参数（当前画面不受影响）">删除</button>
+        </div>
+      </div>
+      <div class="wm-group">
+        <label>另存为</label>
+        <div class="wm-cfg-row">
+          <input type="text" id="wmConfigName" maxlength="40" placeholder="给这套参数起个名字">
+          <button class="wm-mini-btn" id="wmConfigSaveAs" title="把当前这套参数存成一个命名配置">保存</button>
+        </div>
+      </div>
+      <div class="wm-cfg-row">
+        <button class="wm-mini-btn" id="wmConfigExport" title="导出成 .json 文件（导出前会先把当前参数落盘）">导出配置</button>
+        <button class="wm-mini-btn" id="wmConfigImport" title="从 .json 文件导入，覆盖当前参数">导入配置</button>
+        <button class="wm-mini-btn danger" id="wmConfigClear" title="只清掉自动保存的那一份，已命名的配置保留">恢复默认</button>
+      </div>
+      <div class="wm-cfg-row">
+        <button class="wm-mini-btn" id="wmConfigView" title="以 JSON 文本查看当前配置（可直接复制；服务器上不方便下载文件时用这个）">查看 JSON</button>
+        <button class="wm-mini-btn" id="wmConfigJsonTab" title="在新标签页打开同一份 JSON（标签页里 Ctrl+S 也能另存）">新标签打开</button>
+      </div>
+      <div id="wmConfigJson" style="display:none">
+        <textarea id="wmConfigJsonText" readonly spellcheck="false" style="width:100%;height:150px;margin-top:8px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:Consolas,Menlo,monospace;font-size:11px;line-height:1.5;resize:vertical"></textarea>
+        <div class="wm-cfg-row" style="margin-top:6px">
+          <button class="wm-mini-btn" id="wmConfigJsonCopy" title="把上面这段 JSON 复制到剪贴板">复制 JSON</button>
+          <button class="wm-mini-btn" id="wmConfigJsonSelect" title="全选文本（浏览器拒绝自动复制时手动 Ctrl+C）">全选</button>
+          <button class="wm-mini-btn" id="wmConfigJsonClose" title="收起面板">收起</button>
+        </div>
+      </div>
+      <input type="file" id="wmConfigFile" accept=".json,application/json" style="display:none">
+      <div class="wm-cfg-hint">改参数会自动保存，刷新页面后原样回来（图片水印的摆放位置、照片 logo 的落点、画框尺寸都在里面）。配置只存参数与引用 id：换台机器时把 uploads/（图片水印）、brands/（品牌贴图）、fonts/（字体）一起带过来就能完全复现。</div>
+    </div>
+
+    <div class="wm-type-toggle">
+      <button class="wm-type-btn ${isText ? 'active' : ''}" data-type="text">文字水印</button>
+      <button class="wm-type-btn ${isImage ? 'active' : ''}" data-type="image">图片水印</button>
+      <button class="wm-type-btn ${isExif ? 'active' : ''}" data-type="exif">信息栏</button>
+      <button class="wm-type-btn ${isFrame ? 'active' : ''}" data-type="frame">画框水印</button>
+      <button class="wm-type-btn ${isBlur ? 'active' : ''}" data-type="blur">背景模糊</button>
+    </div>
+
+    <div id="wmTextFields" style="${isText ? '' : 'display:none'}">
+      <div class="wm-group">
+        <label>水印文字</label>
+        <input type="text" id="wmText" value="Sample Watermark" placeholder="输入水印文字">
+      </div>
+      <div class="wm-group">
+        <label>字号</label>
+        <div class="wm-slider-row">
+          <input type="range" id="wmFontSize" min="12" max="120" step="1" value="36">
+          <input type="number" class="wm-num" id="wmFontSizeNum" min="12" max="120" step="1" inputmode="decimal" value="36" title="可直接输入数字：12~120，回车或失焦生效">
+          <span class="wm-unit">px</span>
+        </div>
+      </div>
+      <div class="wm-group">
+        <label>颜色</label>
+        <div class="wm-color-row">
+          <input type="color" id="wmColor" value="#ffffff">
+          <div class="color-presets">
+            <div class="color-preset" style="background:#ffffff" data-color="#ffffff"></div>
+            <div class="color-preset" style="background:#000000" data-color="#000000"></div>
+            <div class="color-preset" style="background:#e74c3c" data-color="#e74c3c"></div>
+            <div class="color-preset" style="background:#3498db" data-color="#3498db"></div>
+            <div class="color-preset" style="background:#2ecc71" data-color="#2ecc71"></div>
+            <div class="color-preset" style="background:#f39c12" data-color="#f39c12"></div>
+            <div class="color-preset" style="background:#9b59b6" data-color="#9b59b6"></div>
+          </div>
+        </div>
+      </div>
+      <div class="wm-group">
+        <label class="wm-checkbox">
+          <input type="checkbox" id="wmBold"> 粗体
+        </label>
+      </div>
+    </div>
+
+    <div id="wmImageFields" style="${isImage ? '' : 'display:none'}">
+      <div class="wm-upload-row">
+        <button class="wm-upload-btn" id="wmUploadBtn">+ 添加图片水印</button>
+        <span class="wm-hint" style="margin:0">可一次选多张</span>
+      </div>
+      <div class="wm-list" id="wmList"></div>
+      <div id="wmItemParams" style="${wmItems.length ? '' : 'display:none'}">
+        <div class="wm-group">
+          <label>缩放（占画布宽度）</label>
+          <div class="wm-slider-row">
+            <input type="range" id="wmItemScale" min="2" max="100" step="0.01" value="30">
+            <input type="number" class="wm-num" id="wmItemScaleNum" min="2" max="100" step="0.01" inputmode="decimal" value="30" title="缩放置占画布宽度的百分比：2~100（可带两位小数），回车或失焦生效">
+            <span class="wm-unit">%</span>
+          </div>
+        </div>
+        <div class="wm-group">
+          <label>旋转角度</label>
+          <div class="wm-slider-row">
+            <input type="range" id="wmItemRotation" min="-180" max="180" step="1" value="0">
+            <input type="number" class="wm-num" id="wmItemRotationNum" min="-180" max="180" step="1" inputmode="decimal" value="0" title="可直接输入角度：-180~180，回车或失焦生效">
+            <span class="wm-unit">°</span>
+          </div>
+        </div>
+        <div class="wm-group">
+          <label>透明度</label>
+          <div class="wm-slider-row">
+            <input type="range" id="wmItemOpacity" min="10" max="255" step="1" value="128">
+            <input type="number" class="wm-num" id="wmItemOpacityNum" min="4" max="100" step="1" inputmode="decimal" value="50" title="透明度百分比：4~100，回车或失焦生效">
+            <span class="wm-unit">%</span>
+          </div>
+        </div>
+      </div>
+      <div class="wm-hint">在预览图上拖动水印自由摆放（可放在任意位置）；拖右下角圆点缩放；选中后按 Delete 或点左上角 × 删除。</div>
+    </div>
+
+    <div id="wmExifFields" style="${isExif && !presetActiveFor('exif') ? '' : 'display:none'}">
+      <div class="wm-group">
+        <label>字号（0 为自动）</label>
+        <div class="wm-slider-row">
+          <input type="range" id="wmExifFontSize" min="0" max="80" step="1" value="0">
+          <input type="number" class="wm-num" id="wmExifFontSizeNum" min="0" max="80" step="1" inputmode="decimal" value="0" title="可直接输入字号：0~80（0 = 自动），回车或失焦生效">
+          <span class="wm-unit">px</span>
+        </div>
+      </div>
+      <div class="wm-group">
+        <label>背景色</label>
+        <div class="wm-color-row">
+          <input type="color" id="wmBarColor" value="#ffffff">
+          <div class="color-presets">
+            <div class="color-preset" style="background:#ffffff" data-color="#ffffff"></div>
+            <div class="color-preset" style="background:#000000" data-color="#000000"></div>
+          </div>
+        </div>
+      </div>
+      <div class="wm-group">
+        <label>文字色</label>
+        <div class="wm-color-row">
+          <input type="color" id="wmTextColor" value="#000000">
+        </div>
+      </div>
+    </div>
+
+    <div id="wmFrameFields" style="${(isFrame || isBlur) && !presetActiveFor(watermarkType) ? '' : 'display:none'}">
+      <div class="wm-hint">画框水印 / 背景模糊的版式完全由模板驱动（留白宽度 / 留白颜色 / 底边文字区 / 四行文字 / 照片 logo / 描边都在模板旋钮里；背景模糊另有模糊强度、底图亮度、暗角、照片投影）。请在上面的「模板」里选一个，例如「画框水印 · 拍立得」或「背景模糊 · 品牌信息」。</div>
+    </div>
+
+    <div class="wm-group" ${(isImage || isFrame || isBlur) ? 'style="display:none"' : ''}>
+      <label>透明度</label>
+      <div class="wm-slider-row">
+        <input type="range" id="wmOpacity" min="10" max="255" step="1" value="128">
+        <input type="number" class="wm-num" id="wmOpacityNum" min="4" max="100" step="1" inputmode="decimal" value="50" title="不透明度百分比：4~100，回车或失焦生效">
+        <span class="wm-unit">%</span>
+      </div>
+    </div>
+    <div class="wm-group" ${(isExif || isImage || isFrame || isBlur) ? 'style="display:none"' : ''}>
+      <label>旋转角度</label>
+      <div class="wm-slider-row">
+        <input type="range" id="wmRotation" min="-180" max="180" step="1" value="0">
+        <input type="number" class="wm-num" id="wmRotationNum" min="-180" max="180" step="1" inputmode="decimal" value="0" title="可直接输入角度：-180~180，回车或失焦生效">
+        <span class="wm-unit">°</span>
+      </div>
+    </div>
+    <div class="wm-group" ${(isExif || isImage || isFrame || isBlur) ? 'style="display:none"' : ''}>
+      <label>位置</label>
+      <div class="wm-position-grid">
+        <button class="pos-btn" data-x="0.15" data-y="0.15">左上</button>
+        <button class="pos-btn" data-x="0.5" data-y="0.15">上中</button>
+        <button class="pos-btn" data-x="0.85" data-y="0.15">右上</button>
+        <button class="pos-btn" data-x="0.15" data-y="0.5">左中</button>
+        <button class="pos-btn active" data-x="0.5" data-y="0.5">居中</button>
+        <button class="pos-btn" data-x="0.85" data-y="0.5">右中</button>
+        <button class="pos-btn" data-x="0.15" data-y="0.85">左下</button>
+        <button class="pos-btn" data-x="0.5" data-y="0.85">下中</button>
+        <button class="pos-btn" data-x="0.85" data-y="0.85">右下</button>
+      </div>
+    </div>
+    <div class="wm-group">
+      <label>导出格式</label>
+      <div class="wm-export-row">
+        <select id="wmExportFormat">
+          <option value="jpeg" ${wmExport.format === 'jpeg' ? 'selected' : ''}>JPEG（默认，体积小）</option>
+          <option value="png" ${wmExport.format === 'png' ? 'selected' : ''}>PNG（无损，保留透明）</option>
+          <option value="original" ${wmExport.format === 'original' ? 'selected' : ''}>保持原格式</option>
+        </select>
+        <div class="wm-slider-row">
+          <input type="range" id="wmQuality" min="40" max="100" step="1" value="${wmExport.quality}">
+          <input type="number" class="wm-num" id="wmQualityNum" min="40" max="100" step="1" inputmode="decimal" value="${wmExport.quality}" title="JPEG 质量：40~100，回车或失焦生效">
+          <span class="wm-unit">%</span>
+        </div>
+        <div class="wm-hint" id="wmQualityHint">质量仅对 JPEG 生效，PNG 为无损导出</div>
+      </div>
+    </div>
+    <div class="wm-actions">
+      <button class="btn btn-primary" onclick="previewWatermark()" style="flex:1">预览水印</button>
+      <button class="btn btn-success" onclick="downloadWatermark()" style="flex:1">下载图片</button>
+    </div>
+  `;
+
+  // Type toggle
+  $$('.wm-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.type !== watermarkType) {
+        watermarkType = btn.dataset.type;
+        // 手动切到别的类型 ⇒ 当前模板不再适用（模板只服务自己那一类水印）
+        if (activePreset && !presetActiveFor(watermarkType)) activePreset = null;
+        renderWatermark();
+      }
+    });
+  });
+
+  // Common sliders：拖滑块 / 手输数字共用一套（数字框就是原来那个只读值）
+  const bindSlider = (id, opts = {}) => {
+    bindRangeNumber({
+      ...opts, range: $(`#${id}`), num: $(`#${id}Num`),
+      onCommit: () => debouncedPreview(),
+    });
+  };
+  // 滑块是 10~255（Pillow 口径），给人看的是 4~100%
+  const OPACITY_DISPLAY = {
+    toDisplay: v => v / 255 * 100,
+    toRange: p => Math.round(p * 255 / 100),
+    decimals: 0,
+  };
+  bindSlider('wmOpacity', OPACITY_DISPLAY);
+  bindSlider('wmRotation');
+
+  // Position buttons
+  $$('.pos-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.pos-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      debouncedPreview();
+    });
+  });
+
+  if (isText) {
+    bindSlider('wmFontSize');
+    $('#wmText').addEventListener('input', debouncedPreview);
+    $('#wmColor').addEventListener('input', () => debouncedPreview());
+    $('#wmBold').addEventListener('change', () => debouncedPreview());
+
+    $$('.color-preset').forEach(el => {
+      el.addEventListener('click', () => {
+        $('#wmColor').value = el.dataset.color;
+        debouncedPreview();
+      });
+    });
+  } else if (isImage) {
+    renderWmItemList();
+    syncWmItemPanel(selectedWmItem());
+    $('#wmUploadBtn').addEventListener('click', () => wmFileInput.click());
+    bindWmItemSlider('wmItemScale', (it, v) => { it.scale = Math.min(1, Math.max(0.02, Number(v) / 100)); });
+    bindWmItemSlider('wmItemRotation', (it, v) => { it.rotation = Number(v); });
+    bindWmItemSlider('wmItemOpacity', (it, v) => { it.opacity = Number(v); }, OPACITY_DISPLAY);
+  } else if (isExif) {
+    bindSlider('wmExifFontSize');
+    $('#wmBarColor').addEventListener('input', () => debouncedPreview());
+    $('#wmTextColor').addEventListener('input', () => debouncedPreview());
+    $$('#wmExifFields .color-preset').forEach(el => {
+      el.addEventListener('click', () => {
+        $('#wmBarColor').value = el.dataset.color;
+        debouncedPreview();
+      });
+    });
+  }
+
+  // 导出选项 + 模板卡片 + 配置卡片（每次都重建 DOM，因此这里重新绑一次）
+  bindExportControls();
+  renderPresetUI();
+  bindConfigControls();
+
+  // 非图片水印模式（或还没有底图）不显示拖拽代理层
+  if (isImage && currentImage) showWmLayer(); else hideWmLayer();
+  // 照片 logo 代理层：只在「在图上拖动」模式里显示（其余时候看服务端合成图）
+  if (logoDragging && logoCanShow()) showLogoLayer(); else hideLogoLayer();
+}
+
+let wmPos = { x: 0.5, y: 0.5 };
+let debounceTimer = null;
+
+function debouncedPreview() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(previewWatermark, 200);
+  scheduleConfigSave();   // 同一批改动顺带防抖落盘（配置持久化，见「配置」一节）
+}
+
+// ---------------------------------------------------------------------------
+// 图片水印 DOM 代理层
+// 拖动/缩放只改前端状态（0 请求、即时反馈），点击「预览水印」或「下载图片」时
+// 才把同一套归一化参数交给后端做权威合成，因此「预览所见 = 下载所得」。
+// ---------------------------------------------------------------------------
+const clamp01 = v => Math.min(1, Math.max(0, v));
+
+function wmLayerEl() { return $('#wmLayer'); }
+function selectedWmItem() { return wmItems.find(i => i.key === selectedWmKey) || null; }
+
+function showWmLayer(rebuild = true) {
+  const layer = wmLayerEl();
+  if (!layer) return;
+  if (watermarkType !== 'image') { hideWmLayer(); return; }
+
+  const img = $('#previewImage');
+  // 若当前显示的是服务端合成图，先切回无水印底图，避免水印叠加两遍
+  if (currentImage && img && img.src !== currentImage) img.src = currentImage;
+  layer.classList.add('active');
+  if (rebuild) syncWmLayer(); else layoutWmLayer();
+}
+
+function hideWmLayer() {
+  const layer = wmLayerEl();
+  if (!layer) return;
+  layer.classList.remove('active');
+  layer.innerHTML = '';
+}
+
+function syncWmLayer() {
+  const layer = wmLayerEl();
+  if (!layer) return;
+  layer.innerHTML = '';
+  wmItems.forEach(it => layer.appendChild(buildWmNode(it)));
+  layoutWmLayer();
+}
+
+function buildWmNode(it) {
+  const node = document.createElement('div');
+  node.className = 'wm-item' + (it.key === selectedWmKey ? ' selected' : '');
+  node.dataset.key = it.key;
+  node._wmItem = it;
+
+  const img = document.createElement('img');
+  img.src = it.src;
+  img.alt = '';
+  img.draggable = false;
+  node.appendChild(img);
+
+  const handle = document.createElement('div');
+  handle.className = 'wm-handle';
+  handle.title = '拖动缩放';
+  node.appendChild(handle);
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'wm-del';
+  del.textContent = '×';
+  del.title = '删除该水印';
+  del.addEventListener('click', ev => { ev.stopPropagation(); removeWmItem(it.key); });
+  node.appendChild(del);
+
+  node.addEventListener('pointerdown', ev => {
+    if (ev.button !== undefined && ev.button !== 0) return;
+    if (ev.target === handle) { startWmResize(it, ev); return; }
+    if (ev.target === del || del.contains(ev.target)) return;
+    startWmDrag(it, ev);
+  });
+  return node;
+}
+
+// img 未设显式宽高（max-width/max-height + object-fit:contain），
+// img 自身的盒子就是图片实际渲染区域：把代理层对齐到它，坐标即与后端一致。
+function layoutWmLayer() {
+  const layer = wmLayerEl();
+  const box = $('#previewContainer');
+  const img = $('#previewImage');
+  if (!layer || !box || !img || !layer.classList.contains('active')) return;
+
+  const ir = img.getBoundingClientRect();
+  if (!ir.width || !ir.height) return;
+  const cr = box.getBoundingClientRect();
+  // 绝对定位的包含块是容器的 padding edge，故减去 border（本页为 0）
+  layer.style.left = (ir.left - cr.left - box.clientLeft) + 'px';
+  layer.style.top = (ir.top - cr.top - box.clientTop) + 'px';
+  layer.style.width = ir.width + 'px';
+  layer.style.height = ir.height + 'px';
+
+  Array.from(layer.children).forEach(node => layoutWmNode(node._wmItem));
+}
+
+function layoutWmNode(it) {
+  const layer = wmLayerEl();
+  if (!layer || !it) return;
+  const node = layer.querySelector(`.wm-item[data-key="${it.key}"]`);
+  if (!node) return;
+  const W = layer.clientWidth, H = layer.clientHeight;
+  if (!W || !H) return;
+
+  const w = Math.max(8, W * it.scale);
+  const h = Math.max(8, w * ((it.natH || 1) / (it.natW || 1)));
+  node.style.width = w + 'px';
+  node.style.height = h + 'px';
+  node.style.left = (it.x * W) + 'px';
+  node.style.top = (it.y * H) + 'px';
+  // Pillow 的 rotate 是逆时针，CSS 的 rotate 是顺时针，取负号保持方向一致
+  node.style.transform = `translate(-50%, -50%) rotate(${-it.rotation}deg)`;
+  node.classList.toggle('selected', it.key === selectedWmKey);
+
+  const img = node.querySelector('img');
+  if (img) img.style.opacity = String(Math.max(0.04, it.opacity / 255));
+}
+
+function selectWmItem(key) {
+  selectedWmKey = key;
+  const layer = wmLayerEl();
+  if (layer) {
+    Array.from(layer.children).forEach(n => n.classList.toggle('selected', n.dataset.key === key));
+  }
+  $$('.wm-list-item').forEach(el => el.classList.toggle('active', el.dataset.key === key));
+  const it = selectedWmItem();
+  if (it) syncWmItemPanel(it);
+}
+
+function startWmDrag(it, ev) {
+  ev.preventDefault();
+  selectWmItem(it.key);
+  const layer = wmLayerEl();
+  const r = layer.getBoundingClientRect();
+  const startX = ev.clientX, startY = ev.clientY;
+  const ox = it.x, oy = it.y;
+  const move = e => {
+    it.x = clamp01(ox + (e.clientX - startX) / (r.width || 1));
+    it.y = clamp01(oy + (e.clientY - startY) / (r.height || 1));
+    layoutWmNode(it);
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    scheduleConfigSave();   // 拖完再落盘（拖动过程中不打扰）
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+}
+
+function startWmResize(it, ev) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  selectWmItem(it.key);
+  const layer = wmLayerEl();
+  const r = layer.getBoundingClientRect();
+  // 以水印中心为锚点，按「指针到中心的距离」等比缩放
+  const cx = r.left + it.x * r.width;
+  const cy = r.top + it.y * r.height;
+  const d0 = Math.max(1, Math.hypot(ev.clientX - cx, ev.clientY - cy));
+  const base = it.scale;
+  const move = e => {
+    const d = Math.hypot(e.clientX - cx, e.clientY - cy);
+    it.scale = Math.min(1, Math.max(0.02, base * d / d0));
+    layoutWmNode(it);
+    syncWmItemPanel(it);
+    updateWmListNodeName(it);
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    scheduleConfigSave();   // 拖完再落盘（拖动过程中不打扰）
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+}
+
+function renderWmItemList() {
+  const list = $('#wmList');
+  if (!list) return;
+  if (!wmItems.length) {
+    list.innerHTML = '<div class="wm-hint" style="margin:0">还没有图片水印，点上面的按钮添加（可一次选多张）</div>';
+    return;
+  }
+  list.innerHTML = wmItems.map((it, i) => `
+    <div class="wm-list-item ${it.key === selectedWmKey ? 'active' : ''}" data-key="${it.key}">
+      <img src="${it.src}" alt="">
+      <span class="name">水印 ${i + 1} · ${Math.round(it.scale * 100)}%</span>
+      <button type="button" class="del" data-del="${it.key}" title="删除">删除</button>
+    </div>`).join('');
+
+  list.querySelectorAll('.wm-list-item').forEach(el => {
+    el.addEventListener('click', ev => {
+      if (ev.target.closest('[data-del]')) return;
+      selectWmItem(el.dataset.key);
+      showWmLayer(false);
+    });
+  });
+  list.querySelectorAll('[data-del]').forEach(el => {
+    el.addEventListener('click', ev => { ev.stopPropagation(); removeWmItem(el.dataset.del); });
+  });
+}
+
+function updateWmListNodeName(it) {
+  const idx = wmItems.indexOf(it);
+  const nameEl = document.querySelector(`.wm-list-item[data-key="${it.key}"] .name`);
+  if (nameEl && idx >= 0) nameEl.textContent = `水印 ${idx + 1} · ${wmItemScaleText(it.scale)}`;
+}
+
+// 缩放显示：一位小数（0.01 步长的滑块拖出来的值不再被四舍五入成整数）
+function wmItemScaleText(scale) {
+  return `${Math.round(Number(scale || 0) * 1000) / 10}%`;
+}
+
+function syncWmItemPanel(it) {
+  if (!it) return;
+  // 滑块（真值）与数字框（人话单位）一起写：数字框不是只读显示了，得同步
+  const set = (id, rangeVal, displayVal) => {
+    const el = $(`#${id}`);
+    if (el) el.value = rangeVal;
+    const num = $(`#${id}Num`);
+    if (num) num.value = String(displayVal);
+  };
+  set('wmItemScale', roundTo(it.scale * 100, 2), roundTo(it.scale * 100, 2));
+  set('wmItemRotation', Math.round(it.rotation), Math.round(it.rotation));
+  set('wmItemOpacity', Math.round(it.opacity), Math.round(it.opacity / 255 * 100));
+}
+
+function bindWmItemSlider(id, apply, opts = {}) {
+  bindRangeNumber({
+    ...opts, range: $(`#${id}`), num: $(`#${id}Num`),
+    onCommit: () => {
+      const it = selectedWmItem();
+      if (!it) return;
+      apply(it, $(`#${id}`).value);
+      showWmLayer(false);
+      layoutWmNode(it);
+      updateWmListNodeName(it);
+      scheduleConfigSave();   // 缩放/旋转/透明度也是配置的一部分
+    },
+  });
+}
+
+async function removeWmItem(key) {
+  const idx = wmItems.findIndex(i => i.key === key);
+  if (idx < 0) return;
+  const [it] = wmItems.splice(idx, 1);
+  if (selectedWmKey === key) {
+    selectedWmKey = wmItems.length ? wmItems[Math.min(idx, wmItems.length - 1)].key : null;
+  }
+  try {
+    await fetch('/api/watermark/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: it.id }),
+    });
+  } catch (e) {
+    /* 服务端删文件失败也不阻塞前端继续操作 */
+  }
+  renderWatermark();
+  scheduleConfigSave();
+  showToast('已删除该水印', '');
+}
+
+// 窗口缩放 / 图片尺寸变化时重新对齐代理层（仅在代理层显示中处理）
+function relayoutWmLayer() {
+  const layer = wmLayerEl();
+  if (layer && layer.classList.contains('active')) layoutWmLayer();
+  layoutLogoLayer();   // 自己判 .active，没显示就什么都不做
+}
+window.addEventListener('resize', relayoutWmLayer);
+$('#previewImage').addEventListener('load', relayoutWmLayer);
+
+// 正在看服务端合成图时，点一下预览图即可回到可拖动视图
+$('#previewImage').addEventListener('pointerdown', () => {
+  const layer = wmLayerEl();
+  if (watermarkType !== 'image' || !wmItems.length) return;
+  if (layer && layer.classList.contains('active')) return;  // 已经是可拖动视图，无需重建
+  showWmLayer();
+});
+
+// 选中后 Delete/Backspace 删除（输入框里不拦截，避免影响正常文字编辑）
+document.addEventListener('keydown', ev => {
+  if (watermarkType !== 'image' || !selectedWmKey) return;
+  if (ev.key !== 'Delete' && ev.key !== 'Backspace') return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  ev.preventDefault();
+  removeWmItem(selectedWmKey);
+});
+
+function getWmParams() {
+  const activePos = $('.pos-btn.active');
+  const isText = watermarkType === 'text';
+  const isExif = watermarkType === 'exif';
+  const isFrame = watermarkType === 'frame';
+  const isBlur = watermarkType === 'blur';
+  const params = {
+    type: watermarkType,
+    opacity: Number($('#wmOpacity')?.value || 128),
+    position_x: Number(activePos?.dataset.x ?? 0.5),
+    position_y: Number(activePos?.dataset.y ?? 0.5),
+    rotation: Number($('#wmRotation')?.value || 0),
+  };
+  // 模板：把模板参数（含用户在动态控件里的改动）一并下发，后端按「显式 > 模板」合并
+  if (presetActiveFor(watermarkType)) {
+    params.preset = activePreset.id;
+    Object.assign(params, activePreset.params);
+  }
+  if (isText) {
+    const text = ($('#wmText')?.value || '').trim();
+    if (!text) showToast('水印文字为空，将使用默认文字「水印」', '');
+    params.text = text || '水印';
+    params.font_size = Number($('#wmFontSize')?.value || 36);
+    params.color = $('#wmColor')?.value || '#ffffff';
+    params.bold = !!$('#wmBold')?.checked;
+  } else if (isExif) {
+    // 无模板时才发历史字段：它们会覆盖模板数值（bar_color/bar_opacity 同名）
+    if (!params.preset) {
+      params.font_size = Number($('#wmExifFontSize')?.value || 0);
+      params.bar_color = $('#wmBarColor')?.value || '#ffffff';
+      params.text_color = $('#wmTextColor')?.value || '#000000';
+      params.bar_opacity = Number($('#wmOpacity')?.value || 240);
+    }
+  } else if (isFrame || isBlur) {
+    // 画框水印 / 背景模糊都没有老前端字段：版式全部来自模板参数（上面的 Object.assign 已经带上）。
+    // 没有模板就没有可画的几何量 ⇒ 明说一句，而不是发一个空 payload 让用户对着没变化的图发呆
+    if (!params.preset) {
+      showToast(`${CFG_TYPE_LABEL[watermarkType] || '该水印'}：请先在「模板」里选一个模板`, 'error');
+      return null;
+    }
+  } else {
+    if (!wmItems.length) { showToast('请先添加图片水印', 'error'); return null; }
+    params.scale = 0.3;
+    // 每张水印各自的位置/缩放/旋转/透明度：x,y 为中心点归一化坐标
+    params.items = wmItems.map(it => ({
+      id: it.id,
+      x: Number(it.x.toFixed(5)),
+      y: Number(it.y.toFixed(5)),
+      scale: Number(it.scale.toFixed(5)),
+      rotation: Number(it.rotation.toFixed(2)),
+      opacity: Math.round(it.opacity),
+    }));
+  }
+  return params;
+}
+
+async function previewWatermark() {
+  if (!currentImage) { showToast('请先上传图片', 'error'); return; }
+  scheduleConfigSave();   // 点「预览水印」也顺手落盘（拖动/贴图选择只走这条路）
+  const params = getWmParams();
+  if (!params) return;
+  try {
+    const res = await fetch('/api/watermark/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    });
+    let data = {};
+    try { data = await res.json(); } catch (e) { /* 非 JSON 响应 */ }
+    if (!res.ok || data.error) { showToast(data.error || `预览失败 (HTTP ${res.status})`, 'error'); return; }
+    if (params.type === 'image') {
+      // 服务端权威合成图：隐藏代理层避免水印叠两遍，点击预览图即可回来继续拖动
+      hideWmLayer();
+      showToast('以上为最终合成效果，点击预览图可继续拖动调整', '');
+    }
+    // 回显存一份：照片 logo 代理层要用 applied.frame.photo_box / canvas 做精确对齐
+    lastApplied = data.applied || null;
+    $('#previewImage').src = data.preview;
+    if (data.applied) console.debug('[wm] applied', data.applied, params);
+    // 拖动模式下让代理层保持可见（几何已按最新 applied 校准）；其余情况看服务端合成图，
+    // 避免同一张 logo 在预览图上画两遍
+    if (logoDragging && logoCanShow()) showLogoLayer(); else hideLogoLayer();
+  } catch (e) {
+    showToast('预览失败: ' + e.message, 'error');
+  }
+}
+
+async function downloadWatermark() {
+  if (!currentImage) { showToast('请先上传图片', 'error'); return; }
+  const params = getWmParams();
+  if (!params) return;
+  // 导出选项：默认 jpeg/95 = 与历史完全一致的输出
+  const payload = { ...params, format: wmExport.format, quality: wmExport.quality };
+  try {
+    const res = await fetch('/api/watermark/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      let msg = `下载失败 (HTTP ${res.status})`;
+      try { const j = await res.json(); if (j.error) msg = j.error; } catch (e) { /* 非 JSON */ }
+      showToast(msg, 'error');
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // 文件名以后端为准（PNG/原格式的扩展名不同），避免「选了 PNG 下来还是 .jpg」
+    a.download = filenameFromResponse(res, `watermarked_image.${wmExport.format === 'png' ? 'png' : 'jpg'}`);
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`下载成功（${a.download}）`, 'success');
+  } catch (e) {
+    showToast('下载失败: ' + e.message, 'error');
+  }
+}
+
+// Utils
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+function showToast(msg, type) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ` ${type}` : '');
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+// 启动时拉一次模板列表与品牌贴图库（后面每次渲染水印面板都会用到），
+// 再把上次自动保存的参数读回来（还没有底图就先存着，上传图片后 applyConfig 还原）
+loadPresets();
+loadBrands().then(() => { if (currentImage) renderPresetUI(); });
+const wmConfigReady = loadConfig();
+</script>
+</body>
+</html>

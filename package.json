@@ -1,0 +1,57 @@
+{
+  "name": "dsh-camera-watermark",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Camera EXIF watermark tools for DSH: apply EXIF bars, photo frames, blurred backdrops and text watermarks, batch-export folders, read/edit EXIF, and launch the interactive studio.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "bridge.py",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "engine/**/*"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "camera-watermark",
+    "exif",
+    "watermark",
+    "photo"
+  ],
+  "license": "MIT",
+  "author": "Yakistory (https://github.com/Yakistory)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yakistory/photo_watermark_private.git"
+  },
+  "homepage": "https://github.com/Yakistory/photo_watermark_private#readme",
+  "bugs": {
+    "url": "https://github.com/Yakistory/photo_watermark_private/issues"
+  }
+}

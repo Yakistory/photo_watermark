@@ -1,0 +1,20 @@
+dsh-camera-watermark
+Copyright (c) 2026 Yakistory
+
+The MIT license in LICENSE covers this repository's source code.
+
+This repository does not include third-party images, brand logos, user uploads,
+local watermark settings, or example watermark outputs. engine/uploads,
+engine/brands, engine/fonts, and engine/configs contain only `.gitkeep`
+placeholders; the application creates their contents at runtime.
+
+The vendored camera-watermark engine under engine/ originated as the Coze
+project "image-exif-watermark-tool" v0.0.35 (2026). DSH integration, the Python
+bridge, the model tools, and the Web sidebar entry were authored by Yakistory.
+
+Third-party dependencies keep their own licenses:
+
+- Flask: BSD-3-Clause
+- Pillow: HPND
+- piexif: MIT
+- DeepSeek Harness (DSH): MIT
